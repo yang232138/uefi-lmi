@@ -37,13 +37,16 @@ def edit(path, old, new, label):
     if not path.is_file():
         sys.exit(f'{label}: {path} is missing')
     text = path.read_text(encoding='utf-8')
-    if new in text:
+    count = text.count(old)
+    if count == 0 and new in text:
         print(f'{label}: already applied ({path})')
         return
-    if old not in text:
+    if count == 0:
         sys.exit(f'{label}: pattern not found in {path}; the pinned upstream moved')
-    path.write_text(text.replace(old, new, 1), encoding='utf-8')
-    print(f'{label}: applied ({path})')
+    # The guard appears twice in mkbootimg.py (vendor boot header and header v2);
+    # both paths must stop rejecting an empty DTB.
+    path.write_text(text.replace(old, new), encoding='utf-8')
+    print(f'{label}: applied {count} occurrence(s) ({path})')
 
 
 def main():
