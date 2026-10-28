@@ -35,6 +35,10 @@ on:
         description: Mu-Silicium commit to build against
         required: true
         default: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
+      unique_chip_id:
+        description: Platform seed for the payload (board.toml marks it required)
+        required: false
+        default: "0x8011"
 
 permissions:
   contents: read
@@ -139,3 +143,108 @@ jobs:
             unixnu/out/**/logs/*.log
           if-no-files-found: warn
           retention-days: 14
+
+  payload:
+    # The XNU kernel step drives Xcode, so it runs on Apple's runner; the firmware
+    # volume comes from the job above instead of being rebuilt here.
+    needs: firmware
+    runs-on: macos-26
+    timeout-minutes: 360
+    env:
+      UNIXNU_REPO: ${{ inputs.unixnu_repo }}
+      UNIXNU_REF: ${{ inputs.unixnu_ref }}
+      DEVICE_REPO: ${{ inputs.device_repo }}
+      DEVICE_REF: ${{ inputs.device_ref }}
+      MU_COMMIT: ${{ inputs.mu_commit }}
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - name: Check out this overlay
+        uses: actions/checkout@v4
+        with:
+          path: overlay
+
+      - name: Check out UniXNU
+        run: git clone --depth 1 --branch "$UNIXNU_REF" "https://github.com/$UNIXNU_REPO" unixnu
+
+      - name: Check out the device repository
+        run: git clone --depth 1 --branch "$DEVICE_REF" "https://github.com/$DEVICE_REPO" lmipro
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install the host tools
+        run: |
+          brew install llvm lld mtools dtc unifdef
+          # Homebrew LLVM is keg-only; bootimg needs llvm-objcopy and llvm-nm by name.
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+
+      - name: Report the runner toolchain
+        run: |
+          xcodebuild -version
+          df -h "$GITHUB_WORKSPACE"
+
+      - name: Download the firmware volume
+        uses: actions/download-artifact@v4
+        with:
+          name: lmi-uefi
+          path: artifact
+
+      - name: Fetch Mu-Silicium for the boot image tools
+        run: |
+          mkdir uefi && cd uefi
+          git init -q
+          git remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
+          git fetch -q --depth 1 origin "$MU_COMMIT"
+          git checkout -q FETCH_HEAD
+          cd ..
+          cp -a overlay/BootShim/. uefi/BootShim/
+          cp -a overlay/Resources/. uefi/Resources/
+          test -f uefi/Resources/Scripts/mkbootimg.py
+
+      - name: Resolve the device configuration
+        run: |
+          cd unixnu
+          ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          ./unixnu status -D ../lmipro
+
+      - name: Build the kernel
+        env:
+          # The Apple source listing goes through the GitHub API and anonymous
+          # calls from hosted runners hit the shared rate limit.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          cd unixnu
+          ./unixnu build kernel -D ../lmipro
+
+      - name: Build the payload
+        env:
+          UNIXNU_UNIQUE_CHIP_ID: ${{ inputs.unique_chip_id }}
+        run: |
+          cd unixnu
+          ./unixnu build payload -D ../lmipro --unique-chip-id "$UNIXNU_UNIQUE_CHIP_ID"
+
+      - name: Pack the boot image with the payload
+        run: |
+          cd unixnu
+          fd=$(find ../artifact -name 'SILICIUM_UEFI.fd' | head -1)
+          test -n "$fd" || { echo 'the firmware artifact is missing the FD'; exit 1; }
+          payload=$(find out -name 'payload.img' | head -1)
+          test -n "$payload" || { echo 'no payload volume produced'; exit 1; }
+          ./unixnu bootimg -D ../lmipro --uefi ../uefi --fd "$fd" --dtb ../overlay/DeviceTree/lmi.dtb
+          echo '--- boot.json ---'
+          cat out/lmipro/*/*/boot/boot.json
+
+      - name: Upload the boot image with the payload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmi-boot-payload
+          path: |
+            unixnu/out/**/boot/boot.img
+            unixnu/out/**/boot/boot.json
+            unixnu/out/**/payload/payload.json
+          if-no-files-found: warn
+          # Short retention: the payload carries kernel material derived from an
+          # Apple restore image. Keep it private if that matters to you.
+          retention-days: 3
