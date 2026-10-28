@@ -7,8 +7,8 @@
 | 项 | 值 |
 | --- | --- |
 | 来源 | 本机 `xbl_4.elf`（Redmi K30 Pro 的 XBL 分区镜像）经 `MSMTools/UEFIReader` 解包 |
-| SHA-256 | `3ff35698673c763dedafde9798468da248263743d779f9fd8bb91492c62900dd` |
-| 大小 | 2698060 字节 |
+| SHA-256 | `9c76bc298053228969d2aac4b215aaaadc302ceb793d3f811a284156dcb623f4` |
+| 大小 | 2691452 字节 |
 | 文件数 | 311 |
 
 解包后按 Mu-Silicium 的 `Binaries/<device>/` 布局存放（`ArmPkg/`、`QcomPkg/`、`MdeModulePkg/`、
