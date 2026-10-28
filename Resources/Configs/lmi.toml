@@ -18,9 +18,12 @@ kernel_compression = "gzip"
 append_dtb = true
 
 [boot_image]
-# Header values read from the handset's own images/boot.img:
-# kernel_addr 0x8000, ramdisk_addr 0x1000000, tags_addr 0x100, page 4096, header v2.
-header_version = 2
+# Header v1, like the other Mu-Silicium boards on this SoC (alioth, cepheus,
+# kebab). The device tree is appended to the kernel field (append_dtb), so the
+# ABL must not be told to load a separate dtb: a v2 header with dtb_size 0 fails
+# at load time ("Failed to load/authenticate boot image: Load Error").
+# kernel_addr 0x8000, ramdisk_addr 0x1000000, tags_addr 0x100, page 4096.
+header_version = 1
 base = 0x00000000
 kernel_offset = 0x00008000
 ramdisk_offset = 0x01000000

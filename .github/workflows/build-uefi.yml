@@ -102,7 +102,7 @@ jobs:
           echo "vendor DXE files: $(find uefi/Binaries/lmi -type f | wc -l)"
 
       - name: Adapt the pinned upstreams
-        run: python3 overlay/scripts/adapt.py --unixnu unixnu --uefi uefi
+        run: python3 overlay/scripts/adapt.py --unixnu unixnu
 
       - name: Resolve the device configuration
         run: |
