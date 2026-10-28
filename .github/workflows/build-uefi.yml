@@ -206,6 +206,9 @@ jobs:
         run: |
           cd unixnu
           ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          # The kernel patch series references kits/XnuPrelink, which only exists
+          # after the feeds and submodules are fetched.
+          ./unixnu fetch -D ../lmipro
           ./unixnu status -D ../lmipro
 
       - name: Build the kernel
