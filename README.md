@@ -27,6 +27,20 @@ Redmi K30 Pro（`lmi`，SM8250）的 Mu-Silicium 板级 overlay，按 UniXNU 的
 | `unixnu_repo` / `unixnu_ref` | `yang232138/UniXNU` / `main` |
 | `device_repo` / `device_ref` | `yang232138/lmipro` / `main` |
 | `mu_commit` | `e51cd877e31c8fbb322032dc4cb6715e83d25ad3` |
+| `unique_chip_id` | `0x8011`（占位值，见下） |
+
+两个作业：
+
+- **firmware**（`ubuntu-latest`）：按文档构建固件卷并打一个裸 `boot.img`。
+- **payload**（`macos-26`）：XNU 内核步骤由 Xcode 驱动，所以在 Apple runner 上构建内核和 payload（FAT 卷 ramdisk），再打包成带启动项的 `boot.img`，artifact 名为 `lmi-boot-payload`。
+
+`unique_chip_id` 是 payload 的平台种子，`board.toml` 把它标为 `required`。默认值是占位值：它能验证构建链，但平台身份不是真机的，**不保证能启动到系统**。拿到真实种子后通过该输入或 secret 传入。
+
+### 当前限制
+
+- UniXNU 目前只有 `ipados-17.7.11-21H461` 一个 OS profile；iOS 26 的内核、kext ABI 与 kits 都不在支持范围内。
+- 内核步骤要下载约 7 GB 的 iPadOS 恢复镜像并提取 kernelcache。
+- payload 携带来自 Apple 恢复镜像的内核材料，所以 artifact 只保留 3 天；需要更严格的私密性请改用私有仓库。
 
 流程按文档执行：固定 commit 取 Mu-Silicium、`./unixnu defconfig`、`./unixnu fetch`、
 `./unixnu build firmware --uefi`，再 `./unixnu bootimg` 打包。产物 artifact `lmi-uefi`：

@@ -202,6 +202,9 @@ jobs:
           cp -a overlay/Resources/. uefi/Resources/
           test -f uefi/Resources/Scripts/mkbootimg.py
 
+      - name: Adapt the pinned upstreams
+        run: python3 overlay/scripts/adapt.py --unixnu unixnu
+
       - name: Resolve the device configuration
         run: |
           cd unixnu
