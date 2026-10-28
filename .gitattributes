@@ -1,0 +1,10 @@
+# EDK II and the build scripts expect LF; keep it that way regardless of the host.
+* text=auto eol=lf
+
+# Binary board inputs must never be line-ending converted.
+*.zip binary
+*.dtb binary
+*.fd binary
+*.bin binary
+*.efi binary
+*.depex binary

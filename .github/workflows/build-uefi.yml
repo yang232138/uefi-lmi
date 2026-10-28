@@ -1,0 +1,141 @@
+name: build-uefi
+
+# Builds the lmi (Redmi K30 Pro, SM8250) Mu-Silicium firmware volume with the
+# UniXNU, DarwinBoot and payload-filesystem modules from
+# https://unixnu.com/zh/porting/uefi-firmware, then packs it into a boot image
+# that can be run with "fastboot boot" without flashing.
+#
+# Inputs that live in the firmware tree are staged from this repository:
+#   Platforms/Xiaomi/lmiPkg  board DSC/FDF, APRIORI/DXE/RAW includes, libraries
+#   BootShim/BootShim.S      shim that copies the FD to its load address
+#   Resources/Configs/lmi.toml  FD base/size and boot image header values
+#   Binaries-lmi.zip         vendor DXE set extracted from the handset's XBL
+#   DeviceTree/lmi.dtb       compiled device tree of the handset
+
+on:
+  workflow_dispatch:
+    inputs:
+      unixnu_repo:
+        description: UniXNU repository (owner/name)
+        required: true
+        default: yang232138/UniXNU
+      unixnu_ref:
+        description: UniXNU ref
+        required: true
+        default: main
+      device_repo:
+        description: Device repository (owner/name)
+        required: true
+        default: yang232138/lmipro
+      device_ref:
+        description: Device repository ref
+        required: true
+        default: main
+      mu_commit:
+        description: Mu-Silicium commit to build against
+        required: true
+        default: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  firmware:
+    # EDK II builds with clang + lld on Linux. The kernel step needs macOS, so
+    # this job stops at the firmware volume and the boot image.
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      UNIXNU_REPO: ${{ inputs.unixnu_repo }}
+      UNIXNU_REF: ${{ inputs.unixnu_ref }}
+      DEVICE_REPO: ${{ inputs.device_repo }}
+      DEVICE_REF: ${{ inputs.device_ref }}
+      MU_COMMIT: ${{ inputs.mu_commit }}
+    steps:
+      - name: Check out this overlay
+        uses: actions/checkout@v4
+        with:
+          path: overlay
+
+      - name: Check out UniXNU
+        run: git clone --depth 1 --branch "$UNIXNU_REF" "https://github.com/$UNIXNU_REPO" unixnu
+
+      - name: Check out the device repository
+        run: git clone --depth 1 --branch "$DEVICE_REF" "https://github.com/$DEVICE_REPO" lmipro
+
+      - name: Fetch Mu-Silicium at the pinned commit
+        run: |
+          mkdir uefi && cd uefi
+          git init -q
+          git remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
+          git fetch -q --depth 1 origin "$MU_COMMIT"
+          git checkout -q FETCH_HEAD
+          # The shared EDK II tree and Mu packages. Binaries is skipped on purpose:
+          # the board vendor DXE set comes from this repository instead.
+          git submodule update --init --depth 1 \
+            Mu_Basecore Common/Mu Common/Mu_OEM_Sample Silicium-ACPI || true
+          test -d Mu_Basecore/BaseTools || { echo 'Mu_Basecore is not checked out'; exit 1; }
+
+      - name: Install the host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang lld llvm nasm uuid-dev python3 make \
+            acpica-tools device-tree-compiler unzip
+          clang --version | head -1
+          python3 --version
+
+      - name: Stage the board overlay and the vendor DXE set
+        run: |
+          cp -a overlay/Platforms/. uefi/Platforms/
+          cp -a overlay/BootShim/. uefi/BootShim/
+          cp -a overlay/Resources/. uefi/Resources/
+          rm -rf uefi/Binaries/lmi
+          mkdir -p uefi/Binaries/lmi
+          unzip -q overlay/Binaries-lmi.zip -d uefi/Binaries/lmi
+          test -f uefi/Platforms/Xiaomi/lmiPkg/lmi.dsc
+          test -f uefi/Binaries/lmi/QcomPkg/Drivers/ButtonsDxe/ButtonsDxe.inf
+          echo "vendor DXE files: $(find uefi/Binaries/lmi -type f | wc -l)"
+
+      - name: Adapt the pinned upstreams
+        run: python3 overlay/scripts/adapt.py --unixnu unixnu --uefi uefi
+
+      - name: Resolve the device configuration
+        run: |
+          cd unixnu
+          ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          ./unixnu fetch -D ../lmipro
+          ./unixnu status -D ../lmipro
+
+      - name: Build the firmware volume
+        run: |
+          cd unixnu
+          ./unixnu build firmware -D ../lmipro --uefi ../uefi
+          fd=$(find ../uefi/Build/lmiPkg -path '*FV/SILICIUM_UEFI.fd' | head -1)
+          test -n "$fd" || { echo 'no firmware volume produced'; exit 1; }
+          echo "firmware volume: $fd ($(stat -c %s "$fd") bytes)"
+
+      - name: Pack the boot image
+        run: |
+          cd unixnu
+          fd=$(find ../uefi/Build/lmiPkg -path '*FV/SILICIUM_UEFI.fd' | head -1)
+          ./unixnu bootimg -D ../lmipro --uefi ../uefi --fd "$fd" --dtb ../overlay/DeviceTree/lmi.dtb
+          echo '--- boot.json ---'
+          cat out/lmipro/*/*/boot/boot.json
+
+      - name: Upload the firmware volume and the boot image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmi-uefi
+          path: |
+            uefi/Build/lmiPkg/**/FV/*.fd
+            unixnu/out/**/boot/boot.img
+            unixnu/out/**/boot/boot.json
+            unixnu/out/**/logs/*.log
+          if-no-files-found: warn
+          retention-days: 14

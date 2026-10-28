@@ -1,0 +1,28 @@
+# Mu-Silicium device configuration for the Redmi K30 Pro (lmi, SM8250).
+#
+# The FD base and size are the historical lmi values (0x9fc00000, 3 MiB) recorded by
+# the public lmi UEFI overlay and its MemoryMapLib "UEFI FD" entry. They are compile
+# inputs for BootShim and are checked against the built FD by unixnu bootimg.
+# They are not a measurement on this handset: confirm them from the phone's own
+# bootloader memory map before flashing.
+
+[boot_shim]
+requires_kernel_header = true
+
+[uefi_fd]
+base = 0x9FC00000
+size = 0x300000
+
+[boot_image_kernel]
+kernel_compression = "gzip"
+append_dtb = true
+
+[boot_image]
+# Header values read from the handset's own images/boot.img:
+# kernel_addr 0x8000, ramdisk_addr 0x1000000, tags_addr 0x100, page 4096, header v2.
+header_version = 2
+base = 0x00000000
+kernel_offset = 0x00008000
+ramdisk_offset = 0x01000000
+tags_offset = 0x00000100
+pagesize = 4096
