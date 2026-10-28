@@ -105,6 +105,13 @@ jobs:
           test -f uefi/Binaries/lmi/QcomPkg/Drivers/ButtonsDxe/ButtonsDxe.inf
           echo "vendor DXE files: $(find uefi/Binaries/lmi -type f | wc -l)"
 
+      - name: Apply the SEC entry-argument handoff patch
+        # Project-Silicium v4.0 discards x0 (the DT pointer the boot loader
+        # hands over) in ModuleEntryPoint.S, so the DAEE82E6 HOB that
+        # UniXNURamDiskDxe waits for is never built and the payload FAT volume
+        # is never published. This is the change uefi-sheng carries.
+        run: git -C uefi apply overlay/patches/entry-arg-hob.patch
+
       - name: Adapt the pinned upstreams
         run: python3 overlay/scripts/adapt.py --unixnu unixnu
 
