@@ -110,7 +110,9 @@ jobs:
         # hands over) in ModuleEntryPoint.S, so the DAEE82E6 HOB that
         # UniXNURamDiskDxe waits for is never built and the payload FAT volume
         # is never published. This is the change uefi-sheng carries.
-        run: git -C uefi apply overlay/patches/entry-arg-hob.patch
+        # realpath: git -C uefi changes the directory, so a relative path would
+        # resolve inside uefi/.
+        run: git -C uefi apply "$(realpath overlay/patches/entry-arg-hob.patch)"
 
       - name: Adapt the pinned upstreams
         run: python3 overlay/scripts/adapt.py --unixnu unixnu
