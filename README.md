@@ -15,7 +15,8 @@ Redmi K30 Pro（`lmi`，SM8250）的 Mu-Silicium 板级 overlay，按 UniXNU 的
 | `Resources/Configs/lmi.toml` | 固件基址/大小与 Android boot image header 参数 |
 | `Binaries-lmi.zip` | 从本机 XBL 提取的厂商 DXE 集，见 [`docs/firmware-inputs.md`](docs/firmware-inputs.md) |
 | `DeviceTree/lmi.dtb` | 手机的编译后设备树，打包时追加到 kernel 字段 |
-| `scripts/adapt.py` | 两处上游适配，见下节 |
+| `patches/entry-arg-hob.patch` | 恢复 SEC 的入口参数 HOB 交接，见下节 |
+| `scripts/adapt.py` | 启动镜像的校验适配，见下节 |
 | `.github/workflows/build-uefi.yml` | 云编译流程 |
 
 ## 云编译
@@ -60,15 +61,23 @@ fastboot boot boot.img      # 临时启动，不写入 boot 分区
 开机后如果停在加载器阶段，按
 [绿条诊断](https://unixnu.com/zh/guide/debugging#green-bar) 查 `boot.json` 与串口日志。
 
-## 两处上游适配
+## 上游适配
 
-`scripts/adapt.py` 只改两行，都是为了贴合本机 ABL 的实际行为，运行前会断言上游未被改动：
+### `patches/entry-arg-hob.patch`（固件，关键）
 
-1. **`image_size` 校验**：`unixnu bootimg` 要求 ARM64 header 的 `image_size` 等于
-   `shim + 固件卷`。lmi 的 ABL 拒绝这种镜像（Load Error），所以 `BootShim.S` 写的是
-   裸卷大小；适配后两种值都接受。
-2. **空 DTB**：Mu-Silicium 的 `mkbootimg.py` 在 header v2 下拒绝空 DTB，而 `unixnu`
-   不传 `--dtb`，是把设备树追加进 kernel 字段（`append_dtb = true`）；适配后允许空 DTB。
+Project-Silicium v4.0 的 SEC 入口 `AArch64/ModuleEntryPoint.S` 在进入 C 代码前就把 `x0`
+覆盖成栈地址，于是 bootloader 传入的设备树指针丢失，`DAEE82E6-…` 入口参数 HOB 从来不会
+生成。`UniXNURamDiskDxe` 等的正是这个 HOB，所以**负载卷永远不会被发布**，菜单会出现
+但没有 `xnu` 项。
+
+补丁把 `x0` 存进 `gSecEntryArg0`，并在 `PlatformPeim` 之后构造该 HOB —— 与
+[`UniXNU/uefi-sheng`](https://github.com/UniXNU/uefi-sheng) 的 sheng 分支做法一致。
+
+### `scripts/adapt.py`（启动镜像）
+
+`unixnu bootimg` 要求 ARM64 header 的 `image_size` 等于 `shim + 固件卷`。lmi 的 ABL 拒绝
+这种镜像（Load Error），所以 `BootShim.S` 写的是裸卷大小；脚本放宽该校验，运行前会断言
+上游未被改动。
 
 ## 改动前须知
 
