@@ -1,0 +1,21 @@
+[device]
+codename = "lmipro"
+
+[build]
+source_kernel_run = 40966779440
+source_kernel_sha256 = "49334c982a4029097f841d234cd03bd2cd3d9d017d067ce79cef88c719ca613c"
+source_device_revision = "5693fb17d57bdcb9a7923d2d0a4e8252507fa48e"
+source_firmware_run = 40877381481
+source_firmware_sha256 = "720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6"
+kernel_recompiled = false
+firmware_recompiled = false
+panic_screen = true
+timed_reset = false
+test_runtime_mode = 2
+functional_power_backend = false
+original_amfi_and_pmgr_executables_unchanged = true
+
+[observations]
+lifecycle_pass = "User explicitly observed PMGR LIFECYCLE PASS on mode1 image 00818dc3beabe08a0b1884286ceb43c401461375d8dff5c0b300b618e3528a31"
+service_publication = "pending mode2 hardware observation"
+full_system_boot = "not established"
