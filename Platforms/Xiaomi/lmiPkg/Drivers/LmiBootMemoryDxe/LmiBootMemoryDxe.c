@@ -282,8 +282,12 @@ LmiBootMemoryDxeEntry (
     return EFI_SUCCESS;
   }
 
-  Dtb = *(UINT64 *)GET_GUID_HOB_DATA (Hob);
-  if ((Dtb == 0) || ((Dtb & 3) != 0) || (FdtCheckHeader ((VOID *)(UINTN)Dtb) != 0)) {
+  if (GET_GUID_HOB_DATA_SIZE (Hob) < sizeof (UINT64)) {
+    return EFI_COMPROMISED_DATA;
+  }
+  Dtb = ReadUnaligned64 ((CONST UINT64 *)GET_GUID_HOB_DATA (Hob));
+  // BootShim preserves the live FDT here before the MMU mapping changes.
+  if ((Dtb != 0x9F300000ULL) || (FdtCheckHeader ((VOID *)(UINTN)Dtb) != 0)) {
     DEBUG ((DEBUG_ERROR, "LMIMEM: x0 0x%lx is not a device tree\n", Dtb));
     return EFI_SUCCESS;
   }

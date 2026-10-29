@@ -16,6 +16,8 @@ kernel field = gzip(BootShim + FD + XNUP + payload) + device tree, ramdisk empty
 """
 import argparse
 import gzip
+import hashlib
+import json
 import struct
 import subprocess
 import sys
@@ -84,6 +86,8 @@ def main():
     if len(firmware) != size:
         sys.exit(f'firmware volume is {len(firmware):#x} bytes, the config says {size:#x}')
     payload = args.payload.read_bytes()
+    if payload_base != 0x93200000 or len(payload) != 0x04000000:
+        sys.exit('payload must exactly match the board reserved window 0x93200000-0x97200000')
     tree = args.dtb.read_bytes()
     if tree[:4] != b'\xd0\x0d\xfe\xed' or struct.unpack_from('>I', tree, 4)[0] != len(tree):
         sys.exit('invalid compiled device tree')
@@ -120,6 +124,22 @@ def main():
         back = d.decompress(kernel)
         if back != combined or not d.eof or d.unused_data != tree:
             sys.exit('gzip, firmware, payload and device tree do not round-trip')
+        report = {
+            'image_sha256': hashlib.sha256(data).hexdigest(),
+            'image_bytes': len(data),
+            'header_version': version,
+            'ramdisk_bytes': rsize,
+            'payload_placement': 'XNUP after FD inside gzip kernel',
+            'payload_address': hex(payload_base),
+            'payload_bytes': len(payload),
+            'payload_sha256': hashlib.sha256(payload).hexdigest(),
+            'fd_sha256': hashlib.sha256(firmware).hexdigest(),
+            'dtb_sha256': hashlib.sha256(tree).hexdigest(),
+            'shim_bytes': len(shim),
+            'shim_sha256': hashlib.sha256(shim).hexdigest(),
+            'hardware_tested': False,
+        }
+        args.out.with_suffix('.json').write_text(json.dumps(report, indent=2) + '\n')
         print(f'shim {len(shim)} bytes, firmware {len(firmware)} bytes, payload {len(payload)} bytes at {payload_base:#x}')
         print(f'image {args.out} ({len(data)} bytes), kernel field {ksize}, header v{version}')
 

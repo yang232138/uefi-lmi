@@ -120,6 +120,12 @@ def patch_ramdisk(unixnu):
     """
     text_edit(
         unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
+        '  if ((Dtb == 0) || ((Dtb & 3) != 0) || (FdtCheckHeader ((VOID *)(UINTN)Dtb) != 0)) {\n',
+        '  // Board-only: BootShim copies the live FDT into this mapped reservation.\n'
+        '  if ((Dtb != 0x9F300000ULL) || (FdtCheckHeader ((VOID *)(UINTN)Dtb) != 0)) {\n',
+        'ramdisk reserved FDT guard')
+    text_edit(
+        unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
         '  StartProp = FdtGetProp (Fdt, Chosen, "linux,initrd-start", &StartLength);\n'
         '  EndProp   = FdtGetProp (Fdt, Chosen, "linux,initrd-end", &EndLength);\n'
         '  if ((StartProp == NULL) || (EndProp == NULL) ||\n'
@@ -144,8 +150,8 @@ def patch_ramdisk(unixnu):
         '  } else {\n'
         '    Start = ReadCells (StartProp, StartLength / 4);\n'
         '    End   = ReadCells (EndProp, EndLength / 4);\n'
-        '    if ((Start < 0x80000000ULL) || ((End - Start) != 0x04000000ULL)) {\n'
-        '      // lmi: the reported range is outside the mapped RAM or the wrong size.\n'
+        '    if ((Start != 0x93200000ULL) || (End != 0x97200000ULL)) {\n'
+        '      // Only BootShim\'s exact reserved XNUP window is valid on this board.\n'
         '      DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: initrd 0x%lx-0x%lx unusable; using 0x93200000\\n", Start, End));\n'
         '      Start = 0x93200000ULL;\n'
         '      End   = Start + 0x04000000ULL;\n'

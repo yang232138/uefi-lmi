@@ -1,0 +1,29 @@
+# Review evidence; hardware success is deliberately not asserted.
+[device]
+codename = "lmipro"
+fastboot_product = "lmi"
+
+[baseline]
+firmware_repository = "yang232138/uefi-lmi"
+firmware_revision = "1c43745610b841f519540d6ecde2eaf16b2ac923"
+payload_run = 40824751238
+payload_sha256 = "b9b383161b0e4f20dcedcd98892712400e6d1c0d4686ad6c8a9d26abda86ae13"
+
+[observation]
+stage = "before menu, reported by user"
+exception = "Data abort: Translation fault, second level"
+elr = "0x99EDA360"
+far = "0xA9DFE000"
+pc_symbol_resolved = false
+
+[repair]
+documentation = "https://unixnu.com/zh/porting/uefi-firmware"
+fdt_reservation = "0x9F300000-0x9F3FFFFF (carved from existing RAM Partition)"
+payload_reservation = "0x93200000-0x971FFFFF (unchanged)"
+changes = ["copy live FDT before SEC replaces MMU tables", "reject all initrd ranges except the XNUP reservation", "bound XNUP copy size", "preserve payload copy when FD already relocated"]
+register_changes = false
+vendor_binary_changes = false
+kernel_rebuilt = false
+arm64_emulation_cases_passed = 9
+cloud_build = "pending"
+hardware_test = "pending"
