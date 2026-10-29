@@ -24,3 +24,9 @@ original_kernel_modified = false
 payload_kernel_copy_patched = true
 cloud_build = "pending"
 hardware_test = "pending"
+
+[adt_verification]
+initial_rejected_run = 40842477878
+finding = "Only the generated 64-byte /device-tree/chosen/random-seed differs"
+check = "Normalize that one property, require all remaining ADT bytes identical"
+hardware_properties_changed = false

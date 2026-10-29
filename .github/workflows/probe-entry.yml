@@ -71,7 +71,7 @@ jobs:
           cp menu-tested/SILICIUM_UEFI.fd output/
           cp lmipro/board.toml output/board.toml
           cp overlay/docs/entry-probe.toml output/porting.toml
-          check-tools/bin/python overlay/scripts/verify_entry_probe.py --source menu-tested --out output --payload "$payload" --log "$log" --probe-script unixnu/scripts/patch-xnu-entry-probe.py
+          check-tools/bin/python overlay/scripts/verify_entry_probe.py --source menu-tested --out output --payload "$payload" --log "$log" --probe-script unixnu/scripts/patch-xnu-entry-probe.py --source-adt inputs/kernel.macho.adt
           cd output && sha256sum boot.img SILICIUM_UEFI.fd > SHA256SUMS
       - uses: actions/upload-artifact@v4
         if: always()
