@@ -26,13 +26,13 @@ earlier_timing_observations = "require stage revalidation; restart timing alone 
 
 [diagnostic]
 documentation = "https://unixnu.com/zh/porting/bring-up#阶段-1-uefi"
-scope = "firmware-only menu baseline, empty ramdisk"
-build_marker = "LMI-DIAG4-GCD-FWONLY: no XNU payload"
+scope = "payload reintegration after a photographed firmware-menu boot"
+build_marker = "LMI-GCD4-PAYLOAD-NORESET"
 added_output = ["CurrentEL", "SCTLR", "TTBR0", "MIDR"]
 reads_only = true
-payload_driver_included = false
-payload_driver_reason = "avoid interpreting stale RAM-disk contents during the empty-payload baseline"
-xnu_payload = false
+payload_driver_included = true
+payload_driver_reason = "RAM-disk driver is required to discover the attached verified payload"
+xnu_payload = true
 xnu_reset_probe = false
 memory_ranges_changed = false
 vendor_binary_changes = false
@@ -52,3 +52,19 @@ rendered_status = "9A484000; raw 64-bit status not yet captured"
 interpretation = "suspicious values; root cause not established"
 next_trace = ["input map/count/base/length/attributes", "descriptor type/capabilities/attributes", "capability request", "service table/function address", "raw 64-bit return status"]
 behavior_changed = false
+
+[menu_observation]
+run = 40864308267
+photo = "1793273617545.jpg"
+result = "UniXNU built-in configuration menu shown"
+menu_verified = true
+repeated_boot_stability = "not established"
+
+[payload_reintegration]
+source_run = 40843353220
+source_boot_sha256 = "961a5e1c764f206d5e08f0bebf62247eb6dbf7425d9a0e07ed67e4f172893a4d"
+payload_sha256 = "0991926ae4d69121ceeb8133c3fdcf179e889e7163acfbe78dda28d091df9071"
+entry_probe = true
+panic_screen = true
+timed_reset = false
+kernel_rebuilt = false

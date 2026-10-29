@@ -1,4 +1,4 @@
-name: Documented lmi firmware-only MMU diagnostic
+name: lmi GCD diagnostics and XNU payload without reset
 on:
   push:
     branches: [fix-lmi-mmu-diagnostic-20261029]
@@ -107,7 +107,7 @@ jobs:
         run: |
           cpu=$(find uefi/Build/lmiPkg -path '*/AARCH64/ArmCpuDxe.efi' | head -1)
           test -n "$cpu"
-          python3 -c 'import pathlib,sys; assert b"LMI-DIAG4-GCD-FWONLY: no XNU payload" in pathlib.Path(sys.argv[1]).read_bytes(), "Diagnostic footer missing from compiled CPU driver"' "$cpu"
+          python3 -c 'import pathlib,sys; assert b"LMI-GCD4-PAYLOAD-NORESET" in pathlib.Path(sys.argv[1]).read_bytes(), "Diagnostic footer missing from compiled CPU driver"' "$cpu"
           python3 -c 'import pathlib,sys; b=pathlib.Path(sys.argv[1]).read_bytes(); assert b"LMI-GCD4 CAP" in b and b"LMI-GCD4 OUT rawstatus=" in b, "GCD trace missing from compiled CPU driver"' "$cpu"
 
       - name: Pack the boot image
@@ -135,3 +135,60 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+
+  pack:
+    needs: firmware
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: overlay
+      - uses: actions/download-artifact@v4
+        with:
+          name: lmi-uefi-mmu-diagnostic
+          path: firmware
+      - uses: actions/download-artifact@v4
+        with:
+          name: lmi-documented-entry-probe
+          run-id: 40843353220
+          github-token: ${{ github.token }}
+          path: compiled-payload
+      - name: Install packing and verification tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm
+          python3 -m venv check-tools
+          check-tools/bin/pip install pyfatfs==1.1.0 'setuptools<81'
+      - name: Fetch pinned boot image writer
+        run: |
+          mkdir uefi && cd uefi
+          git init -q
+          git remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
+          git fetch -q --depth 1 origin e51cd877e31c8fbb322032dc4cb6715e83d25ad3
+          git checkout -q FETCH_HEAD
+          cd ..
+          cp -a overlay/BootShim/. uefi/BootShim/
+          cp -a overlay/Resources/. uefi/Resources/
+      - name: Verify the no-reset payload and pack the new firmware
+        run: |
+          boot=$(find compiled-payload -path '*/output/boot.img' | head -1)
+          fd=$(find firmware -name SILICIUM_UEFI.fd | head -1)
+          log=$(find compiled-payload -name payload-patch.log | head -1)
+          test -n "$boot" && test -n "$fd" && test -n "$log"
+          python3 overlay/scripts/reuse_noreset_payload.py --boot "$boot" --out reused
+          mkdir output
+          python3 overlay/scripts/pack_bootimg.py --uefi uefi --fd "$fd" --payload reused/payload.img --dtb overlay/DeviceTree/lmi.dtb --payload-base 0x93200000 --out output/boot.img
+          cp "$fd" output/SILICIUM_UEFI.fd
+          cp reused/reuse.json output/
+          cp "$(dirname "$boot")/payload.json" output/
+          cp "$(dirname "$boot")/probe-verification.json" output/source-probe-verification.json
+          cp "$log" output/payload-patch.log
+          cp overlay/docs/firmware-mmu.toml output/porting.toml
+          check-tools/bin/python overlay/scripts/verify_noreset_payload.py --out output --payload reused/payload.img
+          cd output && sha256sum boot.img SILICIUM_UEFI.fd > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lmi-gcd4-payload-noreset
+          path: output/
+          retention-days: 7

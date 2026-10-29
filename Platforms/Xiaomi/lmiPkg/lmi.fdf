@@ -91,6 +91,7 @@ READ_LOCK_STATUS   = TRUE
   # starts BDS: RamDiskDxe publishes the payload volume, UniXNUDxe registers the
   # boot option, UniXNU is the menu, DarwinBoot is the XNU loader.
   #
+  INF UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   INF UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
   INF UniXNUPkg/Application/UniXNU/UniXNU.inf
   INF DarwinBootPkg/Driver/DarwinBoot.inf
