@@ -41,8 +41,15 @@
 !endif
 
   INF Binaries/lmi/QcomPkg/Drivers/PdcDxe/PdcDxe.inf
-  INF Binaries/lmi/MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
-  INF Binaries/lmi/MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
+  #
+  # Source builds, not the vendor binaries: the prebuilt DiskIo/Partition pair
+  # in Binaries/lmi comes from a different EDK II generation than
+  # FatPkg/EnhancedFatDxe, and the mismatched EFI_BLOCK_IO_MEDIA layout faults
+  # in the FAT driver (translation fault at FAR 0x119) once a ramdisk is
+  # published.
+  #
+  INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
+  INF MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
 
   INF FatPkg/EnhancedFatDxe/Fat.inf
   INF MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
