@@ -1,0 +1,19 @@
+[device]
+codename = "lmipro"
+
+[build]
+source_kernel_run = 40953560214
+source_kernel_sha256 = "fa73fcb3a811ba2133ce2753e3292bc0757166b5903f791e3ecd32a319aa9026"
+source_device_revision = "46df25155308279c56ec5098ea7d36ee7e43a7c3"
+source_firmware_run = 40877381481
+source_firmware_sha256 = "720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6"
+kernel_recompiled = false
+firmware_recompiled = false
+compiled_dt_panic_region_mode = 1
+panic_screen = true
+timed_reset = false
+new_hardware_addresses_added = false
+
+[observation]
+post_PE_create_console = "entry colors or text followed by approximately six-second reset, confirmed by user"
+full_boot = "pending"
