@@ -15,8 +15,8 @@ documentation = "https://unixnu.com/zh/guide/debugging#交接时的绿色条"
 unixnu_revision = "ee472385743ebd16941ab14892dcb9d02e219d15"
 device_revision = "fa4f4acf5830f94e17b4492944356e5d424f2a53"
 mu_revision = "e51cd877e31c8fbb322032dc4cb6715e83d25ad3"
-panic_screen = true
-entry_probe_reset_delay = "not set; --no-reset"
+panic_screen = false
+entry_probe_reset_delay = 6
 firmware_rebuilt = false
 kernel_rebuilt = false
 static_memory_map_changed = false
@@ -30,3 +30,17 @@ initial_rejected_run = 40842477878
 finding = "Only the generated 64-byte /device-tree/chosen/random-seed differs"
 check = "Normalize that one property, require all remaining ADT bytes identical"
 hardware_properties_changed = false
+
+[previous_probe]
+run = 40843353220
+green_blue_magenta = "confirmed by user"
+kernel_entry_executed = true
+reached_before_mmu_enable = true
+passed_mmu_enable = "unverified"
+
+[probe_capacity]
+panic_code_bytes = "0xa2f"
+previous_panic_start = "0xfffffff0073f55c0"
+panic_cave_end = "0xfffffff0073f5ff0"
+reason = "Stage 3 consumes another 0x60 bytes; omit panic renderer rather than overwrite occupied kernel text"
+

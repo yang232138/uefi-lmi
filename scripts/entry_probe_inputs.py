@@ -51,12 +51,12 @@ def main():
     assert sha(kernel) == SOURCE_KERNEL_SHA and sha(adt) == SOURCE_ADT_SHA
     (args.out / 'kernel.macho').write_bytes(kernel)
     (args.out / 'kernel.macho.adt').write_bytes(adt)
-    # Match the official payload path: panic_screen adds the entry probes and
-    # panic renderer to a COPY. No timed reset and no other board changes.
+    # The official payload path adds the two color probes and the stage-3
+    # 6-second reset to a COPY. Omit the panic renderer for cave capacity.
     text = args.board.read_text()
     assert text.count('[payload]\n') == 1 and 'panic_screen' not in text
-    args.board.write_text(text.replace('[payload]\n', '[payload]\npanic_screen = true\n', 1))
-    print('Verified menu-tested FD, original kernel and ADT; enabled documented panic_screen')
+    args.board.write_text(text.replace('[payload]\n', '[payload]\npanic_screen = false\nentry_probe_reset_delay = 6\n', 1))
+    print('Verified menu-tested FD, original kernel and ADT; enabled documented 6-second MMU checkpoint')
 
 if __name__ == '__main__':
     main()

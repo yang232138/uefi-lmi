@@ -63,10 +63,10 @@ def main():
     report = json.loads((out / 'payload.json').read_text())
     assert report['kernel_sha256'] == SOURCE_KERNEL_SHA
     assert report['payload_kernel_sha256'] != SOURCE_KERNEL_SHA
-    assert report['panic_screen'] is True and report['kernel_args'] == '-v serial=3'
+    assert report['panic_screen'] is False and report['kernel_args'] == '-v serial=3'
     assert report['trust_cache_sha256'] is None and report['data_ramdisk_sha256'] is None
     log = args.log.read_text()
-    assert 'stage 1 blue bar, stage 2 magenta bar, no reset probe, panic screen' in log
+    assert 'stage 1 blue bar, stage 2 magenta bar, stage 3 reset 6 s after the MMU is on' in log
     fd = (out / 'SILICIUM_UEFI.fd').read_bytes()
     assert sha(fd) == meta['fd_sha256'] == source['fd_sha256']
     assert meta['shim_sha256'] == source['shim_sha256']
@@ -101,8 +101,8 @@ def main():
                  adt_equivalent_except_random_seed=True, adt_random_seed_bytes=64,
                  source_adt_sha256=SOURCE_ADT_SHA, payload_adt_sha256=sha(adt),
                  original_kernel_rebuilt=False,
-                 entry_probe=True, panic_screen=True, timed_reset=False,
-                 source_observation='menu and XNU item confirmed; green handoff bar only after selection',
+                 entry_probe=True, panic_screen=False, timed_reset=True, reset_delay_seconds=6,
+                 source_observation='prior probe run 40843353220 displayed green, blue and magenta bands, confirmed by user',
                  hardware_test='pending', boot_sha256=meta['image_sha256'])
     (out / 'probe-verification.json').write_text(json.dumps(check, indent=2) + '\n')
     print(json.dumps(check, indent=2))
