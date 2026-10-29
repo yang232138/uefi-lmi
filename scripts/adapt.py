@@ -204,8 +204,8 @@ def patch_mmu_handoff(uefi):
               '  // Decompress all FVs\n',
               '  // Publish the fixed firmware helper before DXE consumers are constructed.\n  Status = PublishLmiMmuHelperHob ();\n  if (EFI_ERROR (Status)) {\n    DEBUG ((DEBUG_ERROR, "LMI-MMU-HOB publish failed=%016lx\\n", (UINT64)Status));\n    return;\n  }\n\n  // Decompress all FVs\n', 'SEC publish before DXE')
     text_edit(uefi / 'Silicon/Silicium/SiliciumPkg/Sec/Sec.inf',
-              '  MdePkg/MdePkg.dec\n',
-              '  MdePkg/MdePkg.dec\n  UefiCpuPkg/UefiCpuPkg.dec\n', 'SEC MMU package')
+              '  SiliciumPkg/SiliciumPkg.dec\n',
+              '  SiliciumPkg/SiliciumPkg.dec\n  UefiCpuPkg/UefiCpuPkg.dec\n', 'SEC MMU package')
     text_edit(uefi / 'Silicon/Silicium/SiliciumPkg/Sec/Sec.inf',
               '[LibraryClasses]\n  ArmLib\n',
               '[LibraryClasses]\n  ArmLib\n  ArmMmuLib\n', 'SEC MMU dependency')

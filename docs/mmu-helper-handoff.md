@@ -37,3 +37,8 @@ not contain either this helper or the page-table entry. This verifies the
 intended path selection, not elimination of the hardware fault. Hardware
 testing and repeat-boot stability remain required. Reuse the no-reset XNU
 entry/panic payload so kernel probes cannot be mistaken for firmware resets.
+
+Build 40875433595 exposed an include-order collision: adding UefiCpuPkg
+before ArmPlatformPkg selected a different PlatformSecLib.h. Keep the
+existing SEC package order and append UefiCpuPkg after SiliciumPkg so the
+board PlatformInitialize declaration remains visible. No C API is replaced.
