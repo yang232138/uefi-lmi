@@ -28,3 +28,22 @@ payload from run 40824751238 after checking both image and payload SHA-256.
 It rebuilds the FD and shim, never XNU. No register or vendor binary edits.
 No flashing, partition editing or OS-root installation is part of this fix.
 The payload remains a kernel/menu test, not a complete installed OS.
+
+## LMI-DIAG2 isolation
+
+Run 40835746473 built successfully but still failed before the menu. The new
+photo 1793259836554.jpg shows ESR 0x02000000 (EC 0), unlike the previous data
+translation fault. Its exact instruction and image base are not established.
+The FDT/payload corrections therefore do not establish a successful menu boot.
+
+Disable the optional dynamic DRAM extension driver in both DSC and FDF for
+this iteration. Keep the static board map, shim, vendor executables and FAT
+payload unchanged. This isolates an extra DXE memory-management path; it is
+not evidence that this driver caused the exception. It also does not establish
+enough memory for XNU. Restore/repair it only after collecting evidence.
+
+The exception footer repeats ESR, PC, LR, image base/offset and argument
+registers after the long dump. It reads one aligned instruction word only for
+EC 0 within the baseline RAM window and with a recognized image. It does not
+probe the instruction address for data-abort exceptions. Archive compiled
+images and symbols so the next fault can be matched to this exact build.

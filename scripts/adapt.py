@@ -170,6 +170,16 @@ def patch_ramdisk(unixnu):
         'ramdisk logical partition')
 
 
+
+def patch_exception_footer(uefi):
+    """Add a short fault footer without changing CPU/MMU behavior."""
+    text_edit(
+        uefi / "Mu_Basecore/UefiCpuPkg/Library/CpuExceptionHandlerLib/AArch64/CpuExceptionHandlerLib.c",
+        "  LogToConsole (UnicodeBuffer);\n\n  ASSERT (FALSE);\n",
+        "  LogToConsole (UnicodeBuffer);\n\n" + '  // LMI-DIAG2: repeat the useful values after the long stack dump.\n  // EC=0 means instruction fetch completed; never probe ELR for data aborts.\n  DEBUG_CODE_BEGIN ();\n  {\n    UINTN  FaultPc;\n    UINTN  FaultImageBase;\n    UINTN  FaultHeaderSize;\n    CHAR8  *FaultPdb;\n\n    FaultPc = (UINTN)SystemContext.SystemContextAArch64->ELR;\n    FaultPdb = GetImageName (FaultPc, &FaultImageBase, &FaultHeaderSize);\n    DEBUG ((DEBUG_ERROR, "\\nLMI-DIAG2: extra DRAM disabled\\n"));\n    DEBUG ((DEBUG_ERROR, "ESR=%lx PC=%lx LR=%lx\\n",\n      SystemContext.SystemContextAArch64->ESR, (UINT64)FaultPc,\n      SystemContext.SystemContextAArch64->LR));\n    if (FaultPdb != NULL) {\n      DEBUG ((DEBUG_ERROR, "IMAGE=%a BASE=%lx OFF=%lx\\n",\n        BaseName (FaultPdb), (UINT64)FaultImageBase,\n        (UINT64)(FaultPc - FaultImageBase)));\n      if (((SystemContext.SystemContextAArch64->ESR >> 26) == 0) &&\n          ((FaultPc & 3) == 0) && (FaultPc >= 0x80000000ULL) &&\n          (FaultPc <= 0x9FFFFFFCULL)) {\n        DEBUG ((DEBUG_ERROR, "OP=%08x\\n", *(volatile UINT32 *)FaultPc));\n      }\n    }\n    DEBUG ((DEBUG_ERROR, "X0=%lx X1=%lx X2=%lx\\n",\n      SystemContext.SystemContextAArch64->X0,\n      SystemContext.SystemContextAArch64->X1,\n      SystemContext.SystemContextAArch64->X2));\n  }\n  DEBUG_CODE_END ();\n' + "\n  ASSERT (FALSE);\n",
+        "LMI-DIAG2 exception footer")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--unixnu', required=True, type=Path, help='UniXNU checkout')
@@ -182,6 +192,7 @@ def main():
     patch_ramdisk(args.unixnu)
     if args.uefi:
         patch_entry_arg(args.uefi)
+        patch_exception_footer(args.uefi)
 
 
 if __name__ == '__main__':

@@ -85,7 +85,6 @@ READ_LOCK_STATUS   = TRUE
   # Add the DRAM the boot loader populated but the GCD does not know yet, so
   # anything it placed outside the board memory map stays reachable.
   #
-  INF lmiPkg/Drivers/LmiBootMemoryDxe/LmiBootMemoryDxe.inf
 
   #
   # UniXNU. These four must be in the FV before BdsDxe (which lives in DXE.inc)

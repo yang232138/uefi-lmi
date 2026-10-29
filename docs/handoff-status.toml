@@ -27,3 +27,19 @@ kernel_rebuilt = false
 arm64_emulation_cases_passed = 9
 cloud_build = "pending"
 hardware_test = "pending"
+
+[diagnostic_iteration]
+previous_run = 40835746473
+photo = "1793259836554.jpg"
+esr = "0x02000000"
+exception_class = "0x00; instruction not identified yet"
+elr_photo_approximate = "0x9ABA6480"
+lr_photo_approximate = "0x9ABA647C"
+pc_symbol_resolved = false
+menu_verified = false
+changes = ["disable optional LmiBootMemoryDxe in DSC and FDF", "add LMI-DIAG2 fault footer", "archive map/pdb/efi for symbolication"]
+memory_map_changed = false
+vendor_binary_changes = false
+kernel_rebuilt = false
+cloud_build = "pending"
+hardware_test = "pending"

@@ -111,6 +111,9 @@ jobs:
           name: lmi-handoff-firmware
           path: |
             uefi/Build/lmiPkg/**/FV/*.fd
+            uefi/Build/lmiPkg/**/*.map
+            uefi/Build/lmiPkg/**/*.pdb
+            uefi/Build/lmiPkg/**/*.efi
             unixnu/out/**/boot/boot.img
             unixnu/out/**/boot/boot.json
             unixnu/out/**/logs/*.log

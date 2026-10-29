@@ -92,7 +92,6 @@
 # drivers/DarwinBoot. They are added on top of the KonaPkg/QcomPkg component list.
 #
 [Components]
-  lmiPkg/Drivers/LmiBootMemoryDxe/LmiBootMemoryDxe.inf
 
   UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
