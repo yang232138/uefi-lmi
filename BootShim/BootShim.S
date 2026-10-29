@@ -39,7 +39,10 @@ _CopyLoop:
   cmp   w2, w3
   b.ne  _NoPayload
   ldr   w6, [x4, #4]    /* Payload Size */
-  add   x6, x6, #23     /* Header + Round Up to 16 */
+  /* Copy the payload itself, not the 8-byte XNUP tag: the destination must
+     start with the FAT boot sector the ramdisk driver expects. */
+  add   x4, x4, #8
+  add   x6, x6, #15     /* Round Up to 16 */
   and   x6, x6, #~15
   movz  x5, #(PAYLOAD_BASE >> 16), lsl #16
 
