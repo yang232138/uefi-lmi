@@ -176,7 +176,7 @@ def patch_exception_footer(edk2):
     text_edit(
         edk2 / "UefiCpuPkg/Library/CpuExceptionHandlerLib/AArch64/CpuExceptionHandlerLib.c",
         "  LogToConsole (UnicodeBuffer);\n\n  ASSERT (FALSE);\n",
-        "  LogToConsole (UnicodeBuffer);\n\n" + '  // LMI-DIAG2: repeat the useful values after the long stack dump.\n  // EC=0 means instruction fetch completed; never probe ELR for data aborts.\n  DEBUG_CODE_BEGIN ();\n  {\n    UINTN  FaultPc;\n    UINTN  FaultImageBase;\n    UINTN  FaultHeaderSize;\n    CHAR8  *FaultPdb;\n\n    FaultPc = (UINTN)SystemContext.SystemContextAArch64->ELR;\n    FaultPdb = GetImageName (FaultPc, &FaultImageBase, &FaultHeaderSize);\n    DEBUG ((DEBUG_ERROR, "\\nLMI-GCD4-PAYLOAD-NORESET\\n"));\n    DEBUG ((DEBUG_ERROR, "EL=%lx SCTLR=%lx TTBR0=%lx MIDR=%x\\n",\n      (UINT64)ArmReadCurrentEL (), (UINT64)ArmReadSctlr (),\n      (UINT64)ArmGetTTBR0BaseAddress (), ArmReadMidr ()));\n    DEBUG ((DEBUG_ERROR, "ESR=%lx PC=%lx LR=%lx\\n",\n      SystemContext.SystemContextAArch64->ESR, (UINT64)FaultPc,\n      SystemContext.SystemContextAArch64->LR));\n    if (FaultPdb != NULL) {\n      DEBUG ((DEBUG_ERROR, "IMAGE=%a BASE=%lx OFF=%lx\\n",\n        BaseName (FaultPdb), (UINT64)FaultImageBase,\n        (UINT64)(FaultPc - FaultImageBase)));\n      if (((SystemContext.SystemContextAArch64->ESR >> 26) == 0) &&\n          ((FaultPc & 3) == 0) && (FaultPc >= 0x80000000ULL) &&\n          (FaultPc <= 0x9FFFFFFCULL)) {\n        DEBUG ((DEBUG_ERROR, "OP=%08x\\n", *(volatile UINT32 *)FaultPc));\n      }\n    }\n    DEBUG ((DEBUG_ERROR, "X0=%lx X1=%lx X2=%lx\\n",\n      SystemContext.SystemContextAArch64->X0,\n      SystemContext.SystemContextAArch64->X1,\n      SystemContext.SystemContextAArch64->X2));\n  }\n  DEBUG_CODE_END ();\n' + "\n  ASSERT (FALSE);\n",
+        "  LogToConsole (UnicodeBuffer);\n\n" + '  // LMI-DIAG2: repeat the useful values after the long stack dump.\n  // EC=0 means instruction fetch completed; never probe ELR for data aborts.\n  DEBUG_CODE_BEGIN ();\n  {\n    UINTN  FaultPc;\n    UINTN  FaultImageBase;\n    UINTN  FaultHeaderSize;\n    CHAR8  *FaultPdb;\n\n    FaultPc = (UINTN)SystemContext.SystemContextAArch64->ELR;\n    FaultPdb = GetImageName (FaultPc, &FaultImageBase, &FaultHeaderSize);\n    DEBUG ((DEBUG_ERROR, "\\nLMI-MMU-HOB-PAYLOAD\\n"));\n    DEBUG ((DEBUG_ERROR, "EL=%lx SCTLR=%lx TTBR0=%lx MIDR=%x\\n",\n      (UINT64)ArmReadCurrentEL (), (UINT64)ArmReadSctlr (),\n      (UINT64)ArmGetTTBR0BaseAddress (), ArmReadMidr ()));\n    DEBUG ((DEBUG_ERROR, "ESR=%lx PC=%lx LR=%lx\\n",\n      SystemContext.SystemContextAArch64->ESR, (UINT64)FaultPc,\n      SystemContext.SystemContextAArch64->LR));\n    if (FaultPdb != NULL) {\n      DEBUG ((DEBUG_ERROR, "IMAGE=%a BASE=%lx OFF=%lx\\n",\n        BaseName (FaultPdb), (UINT64)FaultImageBase,\n        (UINT64)(FaultPc - FaultImageBase)));\n      if (((SystemContext.SystemContextAArch64->ESR >> 26) == 0) &&\n          ((FaultPc & 3) == 0) && (FaultPc >= 0x80000000ULL) &&\n          (FaultPc <= 0x9FFFFFFCULL)) {\n        DEBUG ((DEBUG_ERROR, "OP=%08x\\n", *(volatile UINT32 *)FaultPc));\n      }\n    }\n    DEBUG ((DEBUG_ERROR, "X0=%lx X1=%lx X2=%lx\\n",\n      SystemContext.SystemContextAArch64->X0,\n      SystemContext.SystemContextAArch64->X1,\n      SystemContext.SystemContextAArch64->X2));\n  }\n  DEBUG_CODE_END ();\n' + "\n  ASSERT (FALSE);\n",
         "LMI-DIAG2 exception footer")
 
 
@@ -194,6 +194,35 @@ def patch_gcd_trace(edk2):
               '    Status = gDS->SetMemorySpaceCapabilities (\n                    RegionStart,\n                    RegionLength,\n                    Capabilities\n                    );\n    DEBUG ((DEBUG_ERROR, "LMI-GCD4 OUT rawstatus=%016lx\\n", (UINT64)Status));\n', 'GCD trace raw return')
 
 
+
+def patch_mmu_handoff(uefi):
+    """Publish the SEC-resident helper using the upstream PEI HOB contract."""
+    text_edit(uefi / 'Silicon/Silicium/SiliciumPkg/Sec/Sec.c',
+              'extern UINT64  gSecEntryArg0;\n',
+              'extern UINT64  gSecEntryArg0;\n\n// Follow ArmMmuPeiLibConstructor\'s helper HOB contract in this SEC-only boot.\nextern UINT32  ArmReplaceLiveTranslationEntrySize;\nextern VOID EFIAPI ArmReplaceLiveTranslationEntry (\n  UINT64 *Entry, UINT64 Value, UINT64 RegionStart, BOOLEAN DisableMmu\n  );\n\nSTATIC\nEFI_STATUS\nPublishLmiMmuHelperHob (VOID)\n{\n  UINTN   Helper;\n  UINTN   Size;\n  UINTN   FdBase;\n  UINTN   FdSize;\n  UINT64  Address;\n  VOID    *Hob;\n\n  Helper = (UINTN)ArmReplaceLiveTranslationEntry;\n  Size   = ArmReplaceLiveTranslationEntrySize;\n  FdBase = (UINTN)FixedPcdGet64 (PcdFdBaseAddress);\n  FdSize = FixedPcdGet32 (PcdFdSize);\n  if ((Size == 0) || (Size > 0x200) || (Size > FdSize) ||\n      (Helper < FdBase) || (Helper - FdBase > FdSize - Size) ||\n      ((Helper & 0x1FF) != 0)) {\n    DEBUG ((DEBUG_ERROR, "LMI-MMU-HOB invalid helper=%016lx size=%lx\\n",\n      (UINT64)Helper, (UINT64)Size));\n    return EFI_COMPROMISED_DATA;\n  }\n\n  // This firmware is RAM-backed, so explicitly clean the helper to PoC.\n  WriteBackDataCacheRange ((VOID *)Helper, Size);\n  Address = Helper;\n  Hob = BuildGuidDataHob (&gArmMmuReplaceLiveTranslationEntryFuncGuid,\n                         &Address, sizeof (Address));\n  if (Hob == NULL) {\n    return EFI_OUT_OF_RESOURCES;\n  }\n  DEBUG ((DEBUG_ERROR, "LMI-MMU-HOB publish helper=%016lx size=%lx\\n",\n    Address, (UINT64)Size));\n  return EFI_SUCCESS;\n}\n', 'SEC MMU helper producer')
+    text_edit(uefi / 'Silicon/Silicium/SiliciumPkg/Sec/Sec.c',
+              '  // Decompress all FVs\n',
+              '  // Publish the fixed firmware helper before DXE consumers are constructed.\n  Status = PublishLmiMmuHelperHob ();\n  if (EFI_ERROR (Status)) {\n    DEBUG ((DEBUG_ERROR, "LMI-MMU-HOB publish failed=%016lx\\n", (UINT64)Status));\n    return;\n  }\n\n  // Decompress all FVs\n', 'SEC publish before DXE')
+    text_edit(uefi / 'Silicon/Silicium/SiliciumPkg/Sec/Sec.inf',
+              '  MdePkg/MdePkg.dec\n',
+              '  MdePkg/MdePkg.dec\n  UefiCpuPkg/UefiCpuPkg.dec\n', 'SEC MMU package')
+    text_edit(uefi / 'Silicon/Silicium/SiliciumPkg/Sec/Sec.inf',
+              '[LibraryClasses]\n  ArmLib\n',
+              '[LibraryClasses]\n  ArmLib\n  ArmMmuLib\n', 'SEC MMU dependency')
+    text_edit(uefi / 'Silicon/Silicium/SiliciumPkg/Sec/Sec.inf',
+              '  gSiliciumEntryArgHobGuid\n',
+              '  gSiliciumEntryArgHobGuid\n  gArmMmuReplaceLiveTranslationEntryFuncGuid\n', 'SEC MMU helper GUID')
+
+
+def trace_mmu_handoff(edk2):
+    """Keep the existing consumer semantics and report which helper it uses."""
+    text_edit(edk2 / 'UefiCpuPkg/Library/ArmMmuLib/AArch64/ArmMmuLibCore.c',
+              '    mReplaceLiveEntryFunc = *(ARM_REPLACE_LIVE_TRANSLATION_ENTRY *)GET_GUID_HOB_DATA (Hob);\n',
+              '    mReplaceLiveEntryFunc = *(ARM_REPLACE_LIVE_TRANSLATION_ENTRY *)GET_GUID_HOB_DATA (Hob);\n'
+              '    DEBUG ((DEBUG_ERROR, "LMI-MMU-HOB use=%016lx source=handoff\\n", (UINT64)(UINTN)mReplaceLiveEntryFunc));\n',
+              'MMU helper consumer trace')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--unixnu', required=True, type=Path, help='UniXNU checkout')
@@ -207,9 +236,11 @@ def main():
     patch_ramdisk(args.unixnu)
     if args.uefi:
         patch_entry_arg(args.uefi)
+        patch_mmu_handoff(args.uefi)
     if args.edk2:
         patch_exception_footer(args.edk2)
         patch_gcd_trace(args.edk2)
+        trace_mmu_handoff(args.edk2)
 
 
 if __name__ == '__main__':

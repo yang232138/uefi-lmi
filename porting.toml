@@ -27,7 +27,7 @@ earlier_timing_observations = "require stage revalidation; restart timing alone 
 [diagnostic]
 documentation = "https://unixnu.com/zh/porting/bring-up#阶段-1-uefi"
 scope = "payload reintegration after a photographed firmware-menu boot"
-build_marker = "LMI-GCD4-PAYLOAD-NORESET"
+build_marker = "LMI-MMU-HOB-PAYLOAD"
 added_output = ["CurrentEL", "SCTLR", "TTBR0", "MIDR"]
 reads_only = true
 payload_driver_included = true
@@ -68,3 +68,26 @@ entry_probe = true
 panic_screen = true
 timed_reset = false
 kernel_rebuilt = false
+
+[mmu_helper_handoff]
+trigger_photo = "1793275712170.jpg"
+trigger_image_sha256 = "5dfe7ccc09b2dd09e0b352f859f99c7344fafee01efd6bb0123c8ed86f1bde7c"
+stage = "UEFI DXE, before the requested XNU platform checkpoint"
+pc = "0x9A5BA480"
+module_base = "0x9A5B8000"
+module_rva = "0x2480"
+opcode = "0x17FFFF3A (valid branch in the compiled image)"
+current_el_register = "0x4 (EL1)"
+observed_block = "0x9A400000-0x9A5FFFFF"
+observed_entry_address = "0x9BBECB90"
+producer = "SEC, after library constructors and before DXE core loading"
+consumer = "existing upstream ArmMmuBaseLibConstructor"
+helper_lifetime = "boot services, fixed FD code"
+helper_cleaned_to_poc = true
+fd_memory_type_before = "EfiBootServicesData"
+fd_memory_type_after = "EfiBootServicesCode"
+memory_addresses_and_lengths_changed = false
+page_table_assembly_changed = false
+vendor_binary_changes = false
+root_cause_proven = false
+hardware_test = "pending"

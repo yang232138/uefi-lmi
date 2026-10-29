@@ -1,4 +1,4 @@
-name: lmi GCD diagnostics and XNU payload without reset
+name: lmi SEC MMU helper handoff
 on:
   push:
     branches: [fix-lmi-mmu-diagnostic-20261029]
@@ -107,8 +107,14 @@ jobs:
         run: |
           cpu=$(find uefi/Build/lmiPkg -path '*/AARCH64/ArmCpuDxe.efi' | head -1)
           test -n "$cpu"
-          python3 -c 'import pathlib,sys; assert b"LMI-GCD4-PAYLOAD-NORESET" in pathlib.Path(sys.argv[1]).read_bytes(), "Diagnostic footer missing from compiled CPU driver"' "$cpu"
+          python3 -c 'import pathlib,sys; assert b"LMI-MMU-HOB-PAYLOAD" in pathlib.Path(sys.argv[1]).read_bytes(), "Diagnostic footer missing from compiled CPU driver"' "$cpu"
           python3 -c 'import pathlib,sys; b=pathlib.Path(sys.argv[1]).read_bytes(); assert b"LMI-GCD4 CAP" in b and b"LMI-GCD4 OUT rawstatus=" in b, "GCD trace missing from compiled CPU driver"' "$cpu"
+
+      - name: Verify MMU helper producer and consumer
+        run: |
+          sec=$(find uefi/Build/lmiPkg -path '*/AARCH64/Sec.efi' | head -1)
+          cpu=$(find uefi/Build/lmiPkg -path '*/AARCH64/ArmCpuDxe.efi' | head -1)
+          python3 -c 'import pathlib,sys; assert b"LMI-MMU-HOB publish helper=" in pathlib.Path(sys.argv[1]).read_bytes(); assert b"LMI-MMU-HOB use=" in pathlib.Path(sys.argv[2]).read_bytes()' "$sec" "$cpu"
 
       - name: Pack the boot image
         run: |
@@ -122,7 +128,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lmi-uefi-mmu-diagnostic
+          name: lmi-mmu-helper-firmware
           path: |
             uefi/Build/lmiPkg/**/FV/*.fd
             uefi/Build/lmiPkg/**/*.map
@@ -146,7 +152,7 @@ jobs:
           path: overlay
       - uses: actions/download-artifact@v4
         with:
-          name: lmi-uefi-mmu-diagnostic
+          name: lmi-mmu-helper-firmware
           path: firmware
       - uses: actions/download-artifact@v4
         with:
@@ -189,6 +195,6 @@ jobs:
           cd output && sha256sum boot.img SILICIUM_UEFI.fd > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: lmi-gcd4-payload-noreset
+          name: lmi-mmu-helper-payload
           path: output/
           retention-days: 7
