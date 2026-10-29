@@ -1,0 +1,21 @@
+[device]
+codename = "lmipro"
+
+[diagnostic]
+source_kernel_sha256 = "3d3482ae0edd15dbc0fc4c0ba339a64f77c0699f4a9480168fd151c7c139d0f8"
+firmware_base_run = 40877381481
+firmware_sha256 = "720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6"
+checkpoint = "_kprintf"
+occurrence = 1
+reset_delay_seconds = 6
+original_callee_preserved = true
+kernel_recompiled = false
+firmware_recompiled = false
+cloud_intermediate_is_for_payload_extraction_only = true
+repack_with_current_verified_firmware_before_hardware_test = true
+
+[observations]
+post_serial_init = "three colors then approximately six-second reset"
+post_kernel_startup_initialize_upto = "three colors then approximately six-second reset"
+post_PE_init_printf = "three colors for more than 15 seconds without reset"
+first_kprintf = "pending"

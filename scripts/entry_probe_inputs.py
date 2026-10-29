@@ -52,10 +52,10 @@ def main():
     (args.out / 'kernel.macho').write_bytes(kernel)
     (args.out / 'kernel.macho.adt').write_bytes(adt)
     # The official payload path adds the two color probes and the stage-3
-    # 6-second reset after PE_init_printf to a COPY. Omit the panic renderer for cave capacity.
+    # 6-second reset after the first kprintf to a COPY. Omit the panic renderer for cave capacity.
     text = args.board.read_text()
     assert text.count('[payload]\n') == 1 and 'panic_screen' not in text
-    args.board.write_text(text.replace('[payload]\n', '[payload]\npanic_screen = false\nentry_probe_reset_delay = 6\nentry_probe_reset_after = "_PE_init_printf"\nentry_probe_reset_occurrence = 1\n', 1))
+    args.board.write_text(text.replace('[payload]\n', '[payload]\npanic_screen = false\nentry_probe_reset_delay = 6\nentry_probe_reset_after = "_kprintf"\nentry_probe_reset_occurrence = 1\n', 1))
     print('Verified menu-tested FD, original kernel and ADT; enabled documented post-early-startup checkpoint')
 
 if __name__ == '__main__':

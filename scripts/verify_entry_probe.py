@@ -66,7 +66,7 @@ def main():
     assert report['panic_screen'] is False and report['kernel_args'] == '-v serial=3'
     assert report['trust_cache_sha256'] is None and report['data_ramdisk_sha256'] is None
     log = args.log.read_text()
-    assert 'stage 1 blue bar, stage 2 magenta bar, stage 4 reset after call #1 to _PE_init_printf in _arm_init' in log
+    assert 'stage 1 blue bar, stage 2 magenta bar, stage 4 reset after call #1 to _kprintf in _arm_init' in log
     fd = (out / 'SILICIUM_UEFI.fd').read_bytes()
     assert sha(fd) == meta['fd_sha256'] == source['fd_sha256']
     assert meta['shim_sha256'] == source['shim_sha256']
@@ -101,8 +101,8 @@ def main():
                  adt_equivalent_except_random_seed=True, adt_random_seed_bytes=64,
                  source_adt_sha256=SOURCE_ADT_SHA, payload_adt_sha256=sha(adt),
                  original_kernel_rebuilt=False,
-                 entry_probe=True, panic_screen=False, timed_reset=True, reset_delay_seconds=6, reset_after="_PE_init_printf", reset_in="_arm_init", reset_occurrence=1,
-                 source_observation='post-serial_init checkpoint in run 40846973810 passed; post-platform checkpoint remains unobserved',
+                 entry_probe=True, panic_screen=False, timed_reset=True, reset_delay_seconds=6, reset_after="_kprintf", reset_in="_arm_init", reset_occurrence=1,
+                 source_observation='Under FD 720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6, post-startup reset passed and post-PE_init_printf reset did not occur; check first kprintf next',
                  hardware_test='pending', boot_sha256=meta['image_sha256'])
     (out / 'probe-verification.json').write_text(json.dumps(check, indent=2) + '\n')
     print(json.dumps(check, indent=2))
