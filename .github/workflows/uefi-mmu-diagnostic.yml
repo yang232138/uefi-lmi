@@ -107,7 +107,8 @@ jobs:
         run: |
           cpu=$(find uefi/Build/lmiPkg -path '*/AARCH64/ArmCpuDxe.efi' | head -1)
           test -n "$cpu"
-          python3 -c 'import pathlib,sys; assert b"LMI-DIAG3-FWONLY: no XNU payload" in pathlib.Path(sys.argv[1]).read_bytes(), "Diagnostic footer missing from compiled CPU driver"' "$cpu"
+          python3 -c 'import pathlib,sys; assert b"LMI-DIAG4-GCD-FWONLY: no XNU payload" in pathlib.Path(sys.argv[1]).read_bytes(), "Diagnostic footer missing from compiled CPU driver"' "$cpu"
+          python3 -c 'import pathlib,sys; b=pathlib.Path(sys.argv[1]).read_bytes(); assert b"LMI-GCD4 CAP" in b and b"LMI-GCD4 OUT rawstatus=" in b, "GCD trace missing from compiled CPU driver"' "$cpu"
 
       - name: Pack the boot image
         run: |

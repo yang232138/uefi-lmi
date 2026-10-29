@@ -176,8 +176,22 @@ def patch_exception_footer(edk2):
     text_edit(
         edk2 / "UefiCpuPkg/Library/CpuExceptionHandlerLib/AArch64/CpuExceptionHandlerLib.c",
         "  LogToConsole (UnicodeBuffer);\n\n  ASSERT (FALSE);\n",
-        "  LogToConsole (UnicodeBuffer);\n\n" + '  // LMI-DIAG2: repeat the useful values after the long stack dump.\n  // EC=0 means instruction fetch completed; never probe ELR for data aborts.\n  DEBUG_CODE_BEGIN ();\n  {\n    UINTN  FaultPc;\n    UINTN  FaultImageBase;\n    UINTN  FaultHeaderSize;\n    CHAR8  *FaultPdb;\n\n    FaultPc = (UINTN)SystemContext.SystemContextAArch64->ELR;\n    FaultPdb = GetImageName (FaultPc, &FaultImageBase, &FaultHeaderSize);\n    DEBUG ((DEBUG_ERROR, "\\nLMI-DIAG3-FWONLY: no XNU payload\\n"));\n    DEBUG ((DEBUG_ERROR, "EL=%lx SCTLR=%lx TTBR0=%lx MIDR=%x\\n",\n      (UINT64)ArmReadCurrentEL (), (UINT64)ArmReadSctlr (),\n      (UINT64)ArmGetTTBR0BaseAddress (), ArmReadMidr ()));\n    DEBUG ((DEBUG_ERROR, "ESR=%lx PC=%lx LR=%lx\\n",\n      SystemContext.SystemContextAArch64->ESR, (UINT64)FaultPc,\n      SystemContext.SystemContextAArch64->LR));\n    if (FaultPdb != NULL) {\n      DEBUG ((DEBUG_ERROR, "IMAGE=%a BASE=%lx OFF=%lx\\n",\n        BaseName (FaultPdb), (UINT64)FaultImageBase,\n        (UINT64)(FaultPc - FaultImageBase)));\n      if (((SystemContext.SystemContextAArch64->ESR >> 26) == 0) &&\n          ((FaultPc & 3) == 0) && (FaultPc >= 0x80000000ULL) &&\n          (FaultPc <= 0x9FFFFFFCULL)) {\n        DEBUG ((DEBUG_ERROR, "OP=%08x\\n", *(volatile UINT32 *)FaultPc));\n      }\n    }\n    DEBUG ((DEBUG_ERROR, "X0=%lx X1=%lx X2=%lx\\n",\n      SystemContext.SystemContextAArch64->X0,\n      SystemContext.SystemContextAArch64->X1,\n      SystemContext.SystemContextAArch64->X2));\n  }\n  DEBUG_CODE_END ();\n' + "\n  ASSERT (FALSE);\n",
+        "  LogToConsole (UnicodeBuffer);\n\n" + '  // LMI-DIAG2: repeat the useful values after the long stack dump.\n  // EC=0 means instruction fetch completed; never probe ELR for data aborts.\n  DEBUG_CODE_BEGIN ();\n  {\n    UINTN  FaultPc;\n    UINTN  FaultImageBase;\n    UINTN  FaultHeaderSize;\n    CHAR8  *FaultPdb;\n\n    FaultPc = (UINTN)SystemContext.SystemContextAArch64->ELR;\n    FaultPdb = GetImageName (FaultPc, &FaultImageBase, &FaultHeaderSize);\n    DEBUG ((DEBUG_ERROR, "\\nLMI-DIAG4-GCD-FWONLY: no XNU payload\\n"));\n    DEBUG ((DEBUG_ERROR, "EL=%lx SCTLR=%lx TTBR0=%lx MIDR=%x\\n",\n      (UINT64)ArmReadCurrentEL (), (UINT64)ArmReadSctlr (),\n      (UINT64)ArmGetTTBR0BaseAddress (), ArmReadMidr ()));\n    DEBUG ((DEBUG_ERROR, "ESR=%lx PC=%lx LR=%lx\\n",\n      SystemContext.SystemContextAArch64->ESR, (UINT64)FaultPc,\n      SystemContext.SystemContextAArch64->LR));\n    if (FaultPdb != NULL) {\n      DEBUG ((DEBUG_ERROR, "IMAGE=%a BASE=%lx OFF=%lx\\n",\n        BaseName (FaultPdb), (UINT64)FaultImageBase,\n        (UINT64)(FaultPc - FaultImageBase)));\n      if (((SystemContext.SystemContextAArch64->ESR >> 26) == 0) &&\n          ((FaultPc & 3) == 0) && (FaultPc >= 0x80000000ULL) &&\n          (FaultPc <= 0x9FFFFFFCULL)) {\n        DEBUG ((DEBUG_ERROR, "OP=%08x\\n", *(volatile UINT32 *)FaultPc));\n      }\n    }\n    DEBUG ((DEBUG_ERROR, "X0=%lx X1=%lx X2=%lx\\n",\n      SystemContext.SystemContextAArch64->X0,\n      SystemContext.SystemContextAArch64->X1,\n      SystemContext.SystemContextAArch64->X2));\n  }\n  DEBUG_CODE_END ();\n' + "\n  ASSERT (FALSE);\n",
         "LMI-DIAG2 exception footer")
+
+
+
+def patch_gcd_trace(edk2):
+    """Read-only trace around the exact capability call that asserted."""
+    text_edit(edk2 / "ArmPkg/Drivers/CpuDxe/CpuMmuCommon.c",
+              '  // We do not support a smaller granularity than 4KB on ARM Architecture\n',
+              '  DEBUG ((DEBUG_ERROR, "LMI-GCD4 IN map=%016lx count=%lx\\n",\n    (UINT64)(UINTN)MemorySpaceMap, (UINT64)NumberOfDescriptors));\n  DEBUG ((DEBUG_ERROR, "LMI-GCD4 IN base=%016lx len=%016lx attr=%016lx\\n",\n    BaseAddress, Length, Attributes));\n  // We do not support a smaller granularity than 4KB on ARM Architecture\n', 'GCD trace entry')
+    text_edit(edk2 / "ArmPkg/Drivers/CpuDxe/CpuMmuCommon.c",
+              '    // Update GCD capabilities as these may have changed in the page table from the original GCD setting\n',
+              '    DEBUG ((DEBUG_ERROR, "LMI-GCD4 IDX=%lx type=%u oldcap=%016lx oldattr=%016lx\\n",\n      (UINT64)Index, (UINT32)MemorySpaceMap[Index].GcdMemoryType,\n      MemorySpaceMap[Index].Capabilities, MemorySpaceMap[Index].Attributes));\n    DEBUG ((DEBUG_ERROR, "LMI-GCD4 CAP base=%016lx len=%016lx cap=%016lx\\n",\n      RegionStart, RegionLength, Capabilities));\n    DEBUG ((DEBUG_ERROR, "LMI-GCD4 DS=%016lx FN=%016lx EL=%lx\\n",\n      (UINT64)(UINTN)gDS, (UINT64)(UINTN)gDS->SetMemorySpaceCapabilities,\n      (UINT64)ArmReadCurrentEL ()));\n    // Update GCD capabilities as these may have changed in the page table from the original GCD setting\n', 'GCD trace request')
+    text_edit(edk2 / "ArmPkg/Drivers/CpuDxe/CpuMmuCommon.c",
+              '    Status = gDS->SetMemorySpaceCapabilities (\n                    RegionStart,\n                    RegionLength,\n                    Capabilities\n                    );\n',
+              '    Status = gDS->SetMemorySpaceCapabilities (\n                    RegionStart,\n                    RegionLength,\n                    Capabilities\n                    );\n    DEBUG ((DEBUG_ERROR, "LMI-GCD4 OUT rawstatus=%016lx\\n", (UINT64)Status));\n', 'GCD trace raw return')
 
 
 def main():
@@ -195,6 +209,7 @@ def main():
         patch_entry_arg(args.uefi)
     if args.edk2:
         patch_exception_footer(args.edk2)
+        patch_gcd_trace(args.edk2)
 
 
 if __name__ == '__main__':

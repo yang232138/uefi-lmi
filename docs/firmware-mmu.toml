@@ -27,7 +27,7 @@ earlier_timing_observations = "require stage revalidation; restart timing alone 
 [diagnostic]
 documentation = "https://unixnu.com/zh/porting/bring-up#阶段-1-uefi"
 scope = "firmware-only menu baseline, empty ramdisk"
-build_marker = "LMI-DIAG3-FWONLY: no XNU payload"
+build_marker = "LMI-DIAG4-GCD-FWONLY: no XNU payload"
 added_output = ["CurrentEL", "SCTLR", "TTBR0", "MIDR"]
 reads_only = true
 payload_driver_included = false
@@ -39,3 +39,16 @@ vendor_binary_changes = false
 control_register_changes = false
 cloud_build = "pending"
 hardware_test = "pending"
+
+[gcd_assertion]
+photo = "1793272173335.jpg"
+source_run = 40859566721
+function = "SetGcdMemorySpaceAttributes"
+assertion = "CpuMmuCommon.c(175), capability update failure"
+rendered_capabilities = "0x4"
+rendered_region = "0x9A4B7003, approximate transcription from photograph"
+rendered_length = "0x9BBECB90, approximate transcription from photograph"
+rendered_status = "9A484000; raw 64-bit status not yet captured"
+interpretation = "suspicious values; root cause not established"
+next_trace = ["input map/count/base/length/attributes", "descriptor type/capabilities/attributes", "capability request", "service table/function address", "raw 64-bit return status"]
+behavior_changed = false
