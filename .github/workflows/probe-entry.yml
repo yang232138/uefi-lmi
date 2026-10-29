@@ -1,7 +1,7 @@
-name: Documented lmi first kprintf checkpoint
+name: Documented lmi console creation checkpoint
 on:
   push:
-    branches: [probe-lmi-kprintf-20261030]
+    branches: [probe-lmi-console-20261030]
   workflow_dispatch:
 permissions:
   contents: read
