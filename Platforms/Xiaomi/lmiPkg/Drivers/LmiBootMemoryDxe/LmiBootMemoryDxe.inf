@@ -1,0 +1,40 @@
+##
+#  Add the DRAM the boot loader populated but the GCD does not know yet.
+#
+#  Ported from UniXNU/uefi-sheng's sheng branch (ShengBootMemoryDxe), which
+#  consumes the same DAEE82E6 entry-argument HOB this board's SEC builds.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = LmiBootMemoryDxe
+  FILE_GUID                      = 5C0E4B7A-31D2-4E8F-9A66-0B1F7D2C8E44
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = LmiBootMemoryDxeEntry
+
+[Sources]
+  LmiBootMemoryDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  SiliciumPkg/SiliciumPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DxeServicesTableLib
+  FdtLib
+  HobLib
+  MemoryAllocationLib
+  UefiDriverEntryPoint
+
+[Guids]
+  gSiliciumEntryArgHobGuid                      ## CONSUMES
+
+[Depex]
+  TRUE
