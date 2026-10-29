@@ -47,3 +47,8 @@ registers after the long dump. It reads one aligned instruction word only for
 EC 0 within the baseline RAM window and with a recognized image. It does not
 probe the instruction address for data-abort exceptions. Archive compiled
 images and symbols so the next fault can be matched to this exact build.
+
+Run 40839040045 was rejected before hardware testing: the footer was patched
+in the unused Mu_Basecore submodule, while the builder uses its separate
+resolved edk2 feed at cfb93724a06ff86ff5ba971413368a7809ee42a5. Patch that
+feed after fetch and require the diagnostic marker in compiled ArmCpuDxe.

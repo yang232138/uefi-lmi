@@ -43,3 +43,9 @@ vendor_binary_changes = false
 kernel_rebuilt = false
 cloud_build = "pending"
 hardware_test = "pending"
+
+[build_input_correction]
+rejected_run = 40839040045
+reason = "footer patched unused Mu_Basecore checkout; missing from compiled binary"
+actual_edk2_revision = "cfb93724a06ff86ff5ba971413368a7809ee42a5"
+fix = "patch resolved edk2 feed after fetch; require marker in compiled ArmCpuDxe"

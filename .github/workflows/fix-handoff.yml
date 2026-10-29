@@ -88,6 +88,13 @@ jobs:
           ./unixnu fetch -D ../lmipro
           ./unixnu status -D ../lmipro
 
+      - name: Adapt the resolved shared edk2 feed
+        run: |
+          edk2=$(find unixnu/out/feeds -maxdepth 1 -type d -name 'mu_basecore-*' | head -1)
+          test -n "$edk2"
+          test "$(git -C "$edk2" rev-parse HEAD)" = cfb93724a06ff86ff5ba971413368a7809ee42a5
+          python3 overlay/scripts/adapt.py --unixnu unixnu --edk2 "$edk2"
+
       - name: Build the firmware volume
         run: |
           cd unixnu
@@ -95,6 +102,12 @@ jobs:
           fd=$(find ../uefi/Build/lmiPkg -path '*FV/SILICIUM_UEFI.fd' | head -1)
           test -n "$fd" || { echo 'no firmware volume produced'; exit 1; }
           echo "firmware volume: $fd ($(stat -c %s "$fd") bytes)"
+
+      - name: Verify compiled diagnostic footer
+        run: |
+          cpu=$(find uefi/Build/lmiPkg -path '*/AARCH64/ArmCpuDxe.efi' | head -1)
+          test -n "$cpu"
+          python3 -c 'import pathlib,sys; assert b"LMI-DIAG2: extra DRAM disabled" in pathlib.Path(sys.argv[1]).read_bytes(), "Diagnostic footer missing from compiled CPU driver"' "$cpu"
 
       - name: Pack the boot image
         run: |
