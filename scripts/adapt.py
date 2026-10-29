@@ -153,6 +153,16 @@ def patch_ramdisk(unixnu):
         '  }\n',
         'ramdisk fallback window')
 
+    # The prebuilt PartitionDxe from Binaries/lmi faults while scanning this
+    # volume (translation fault at FAR 0x119, third level). Publishing the block
+    # device as a partition makes PartitionDxe skip it; EnhancedFatDxe then
+    # mounts the volume directly.
+    text_edit(
+        unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
+        '  mMedia.LogicalPartition = FALSE;\n',
+        '  mMedia.LogicalPartition = TRUE;\n',
+        'ramdisk logical partition')
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
