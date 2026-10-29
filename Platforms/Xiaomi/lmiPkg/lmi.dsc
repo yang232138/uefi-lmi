@@ -93,7 +93,6 @@
 #
 [Components]
 
-  UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
   UniXNUPkg/Application/UniXNU/UniXNU.inf
   DarwinBootPkg/Driver/DarwinBoot.inf

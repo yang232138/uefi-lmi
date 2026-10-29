@@ -1,51 +1,41 @@
-# Review evidence; hardware success is deliberately not asserted.
 [device]
 codename = "lmipro"
 fastboot_product = "lmi"
 
-[baseline]
-firmware_repository = "yang232138/uefi-lmi"
-firmware_revision = "1c43745610b841f519540d6ecde2eaf16b2ac923"
-payload_run = 40824751238
-payload_sha256 = "b9b383161b0e4f20dcedcd98892712400e6d1c0d4686ad6c8a9d26abda86ae13"
+[source]
+firmware_base = "687bb6619e70d33afa76eda1813e1acee9dd23db"
+unixnu = "ee472385743ebd16941ab14892dcb9d02e219d15"
+device = "fa4f4acf5830f94e17b4492944356e5d424f2a53"
+mu = "e51cd877e31c8fbb322032dc4cb6715e83d25ad3"
+edk2 = "cfb93724a06ff86ff5ba971413368a7809ee42a5"
 
 [observation]
-stage = "before menu, reported by user"
-exception = "Data abort: Translation fault, second level"
-elr = "0x99EDA360"
-far = "0xA9DFE000"
-pc_symbol_resolved = false
-
-[repair]
-documentation = "https://unixnu.com/zh/porting/uefi-firmware"
-fdt_reservation = "0x9F300000-0x9F3FFFFF (carved from existing RAM Partition)"
-payload_reservation = "0x93200000-0x971FFFFF (unchanged)"
-changes = ["copy live FDT before SEC replaces MMU tables", "reject all initrd ranges except the XNUP reservation", "bound XNUP copy size", "preserve payload copy when FD already relocated"]
-register_changes = false
-vendor_binary_changes = false
-kernel_rebuilt = false
-arm64_emulation_cases_passed = 9
-cloud_build = "pending"
-hardware_test = "pending"
-
-[diagnostic_iteration]
-previous_run = 40835746473
-photo = "1793259836554.jpg"
+photo = "1793269597594.jpg"
+image_run = 40848707171
+image_sha256 = "ffa8bfecb39ba2cd4eb3c36925bfce70bc59f1c1ce825613da6b73a92dbdfeee"
+stage = "UEFI DXE exception; ShmBridge/SCM/memory-attribute update chain"
 esr = "0x02000000"
-exception_class = "0x00; instruction not identified yet"
-elr_photo_approximate = "0x9ABA6480"
-lr_photo_approximate = "0x9ABA647C"
-pc_symbol_resolved = false
-menu_verified = false
-changes = ["disable optional LmiBootMemoryDxe in DSC and FDF", "add LMI-DIAG2 fault footer", "archive map/pdb/efi for symbolication"]
-memory_map_changed = false
+pc = "0x9A5BB4C0"
+image_base = "0x9A5B9000"
+image_offset = "0x24C0"
+image = "ArmCpuDxe.pdb"
+opcode = "0xD65F03C0 (RET)"
+function = "UpdateRegionMappingRecursive epilogue"
+root_cause = "unresolved; do not replace RET or change control registers based on this photo"
+earlier_timing_observations = "require stage revalidation; restart timing alone does not exclude firmware reset"
+
+[diagnostic]
+documentation = "https://unixnu.com/zh/porting/bring-up#阶段-1-uefi"
+scope = "firmware-only menu baseline, empty ramdisk"
+build_marker = "LMI-DIAG3-FWONLY: no XNU payload"
+added_output = ["CurrentEL", "SCTLR", "TTBR0", "MIDR"]
+reads_only = true
+payload_driver_included = false
+payload_driver_reason = "avoid interpreting stale RAM-disk contents during the empty-payload baseline"
+xnu_payload = false
+xnu_reset_probe = false
+memory_ranges_changed = false
 vendor_binary_changes = false
-kernel_rebuilt = false
+control_register_changes = false
 cloud_build = "pending"
 hardware_test = "pending"
-
-[build_input_correction]
-rejected_run = 40839040045
-reason = "footer patched unused Mu_Basecore checkout; missing from compiled binary"
-actual_edk2_revision = "cfb93724a06ff86ff5ba971413368a7809ee42a5"
-fix = "patch resolved edk2 feed after fetch; require marker in compiled ArmCpuDxe"

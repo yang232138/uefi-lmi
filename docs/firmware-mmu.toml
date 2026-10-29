@@ -1,0 +1,41 @@
+[device]
+codename = "lmipro"
+fastboot_product = "lmi"
+
+[source]
+firmware_base = "687bb6619e70d33afa76eda1813e1acee9dd23db"
+unixnu = "ee472385743ebd16941ab14892dcb9d02e219d15"
+device = "fa4f4acf5830f94e17b4492944356e5d424f2a53"
+mu = "e51cd877e31c8fbb322032dc4cb6715e83d25ad3"
+edk2 = "cfb93724a06ff86ff5ba971413368a7809ee42a5"
+
+[observation]
+photo = "1793269597594.jpg"
+image_run = 40848707171
+image_sha256 = "ffa8bfecb39ba2cd4eb3c36925bfce70bc59f1c1ce825613da6b73a92dbdfeee"
+stage = "UEFI DXE exception; ShmBridge/SCM/memory-attribute update chain"
+esr = "0x02000000"
+pc = "0x9A5BB4C0"
+image_base = "0x9A5B9000"
+image_offset = "0x24C0"
+image = "ArmCpuDxe.pdb"
+opcode = "0xD65F03C0 (RET)"
+function = "UpdateRegionMappingRecursive epilogue"
+root_cause = "unresolved; do not replace RET or change control registers based on this photo"
+earlier_timing_observations = "require stage revalidation; restart timing alone does not exclude firmware reset"
+
+[diagnostic]
+documentation = "https://unixnu.com/zh/porting/bring-up#阶段-1-uefi"
+scope = "firmware-only menu baseline, empty ramdisk"
+build_marker = "LMI-DIAG3-FWONLY: no XNU payload"
+added_output = ["CurrentEL", "SCTLR", "TTBR0", "MIDR"]
+reads_only = true
+payload_driver_included = false
+payload_driver_reason = "avoid interpreting stale RAM-disk contents during the empty-payload baseline"
+xnu_payload = false
+xnu_reset_probe = false
+memory_ranges_changed = false
+vendor_binary_changes = false
+control_register_changes = false
+cloud_build = "pending"
+hardware_test = "pending"
