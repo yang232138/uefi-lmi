@@ -1,0 +1,144 @@
+name: lmipro guarded PMGR lifecycle kernel
+on:
+  push:
+    branches: [kernel-lmi-pmgr-lifecycle-20261030]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  kernel:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: overlay
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Fetch the pinned sources
+        run: |
+          mkdir unixnu && cd unixnu
+          git init -q
+          git remote add origin https://github.com/yang232138/UniXNU.git
+          git fetch -q --depth 1 origin ee472385743ebd16941ab14892dcb9d02e219d15
+          git checkout -q FETCH_HEAD
+          cd ..
+          mkdir lmipro && cd lmipro
+          git init -q
+          git remote add origin https://github.com/yang232138/lmipro.git
+          git fetch -q --depth 1 origin 5693fb17d57bdcb9a7923d2d0a4e8252507fa48e
+          git checkout -q FETCH_HEAD
+          cd ..
+          mkdir uefi && cd uefi
+          git init -q
+          git remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
+          git fetch -q --depth 1 origin e51cd877e31c8fbb322032dc4cb6715e83d25ad3
+          git checkout -q FETCH_HEAD
+          cd ..
+          cp -a overlay/BootShim/. uefi/BootShim/
+          cp -a overlay/Resources/. uefi/Resources/
+      - name: Install the baseline toolchain
+        run: |
+          brew install llvm lld mtools dtc unifdef
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          xcodebuild -version
+      - name: Download the current verified firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: lmi-mmu-helper-payload
+          run-id: 40877381481
+          github-token: ${{ github.token }}
+          path: current-firmware
+      - name: Verify firmware and device records
+        run: |
+          python3 -c 'import pathlib,hashlib; p=pathlib.Path("current-firmware/SILICIUM_UEFI.fd"); assert p.stat().st_size==0x300000; assert hashlib.sha256(p.read_bytes()).hexdigest()=="720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6"'
+          python3 overlay/scripts/adapt.py --unixnu unixnu
+          cd unixnu
+          python3 scripts/porting-record.py check --device ../lmipro
+      - name: Select flag-off reference configuration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('lmipro/configs/lmipro_defconfig')
+          s=p.read_text()
+          assert s.count('CONFIG_XNU_SHENG_PMGR=y')==1
+          Path('declared-lmipro_defconfig').write_text(s)
+          p.write_text(s.replace('CONFIG_XNU_SHENG_PMGR=y','# CONFIG_XNU_SHENG_PMGR is not set'))
+          PY
+          cd unixnu
+          ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          ./unixnu fetch -D ../lmipro
+          ./unixnu status -D ../lmipro
+      - name: Build a fresh reference candidate in this job
+        run: |
+          cd unixnu
+          ./unixnu build kernel -D ../lmipro
+      - name: Audit this reference and original cache
+        run: |
+          python3 overlay/scripts/prepare_lmipro_pmgr_reference.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --cache unixnu/out/ipsw/21H461/kernelcache.decompressed --out output
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          p=Path('unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/logs')
+          for n in ['kernel.log','prelink.log']:
+              shutil.copyfile(p/n,Path('output')/('reference-'+n))
+          PY
+      - name: Restore the declared guarded integration
+        run: |
+          cp declared-lmipro_defconfig lmipro/configs/lmipro_defconfig
+          cd unixnu
+          ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          ./unixnu status --json -D ../lmipro > ../output/resolved-status.json
+      - name: Compile and link the ABI-gated PMGR archive
+        run: |
+          cd unixnu
+          ./unixnu build kernel -D ../lmipro
+      - name: Verify the final source kernel and unchanged original executables
+        run: |
+          python3 overlay/scripts/verify_lmipro_pmgr_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --out output --device-revision 5693fb17d57bdcb9a7923d2d0a4e8252507fa48e
+          cp lmipro/porting.toml output/source-porting.toml
+      - name: Select only unpublished lifecycle mode and the no-reset screen
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+          p=Path('lmipro/board.toml');s=p.read_text()
+          b=tomllib.loads(s)
+          assert b['payload']['kernel_args']==['-v','serial=3']
+          assert s.count('[payload]\n')==1 and 'panic_screen' not in s
+          s=s.replace('[payload]\n','[payload]\npanic_screen = true\n',1)
+          s=s.replace('kernel_args = ["-v", "serial=3"]','kernel_args = ["-v", "serial=3", "sheng-pmgr=1"]')
+          assert tomllib.loads(s)['payload']['kernel_args']==['-v','serial=3','sheng-pmgr=1']
+          p.write_text(s)
+          PY
+          cd unixnu
+          ./unixnu build payload -D ../lmipro --kernel ../output/kernel-original.macho --uefi ../uefi --unique-chip-id 0x8011
+      - name: Pack with the unchanged verified firmware
+        run: |
+          payload=$(find unixnu/out -path '*/payload/payload.img' | head -1)
+          report=$(find unixnu/out -path '*/payload/payload.json' | head -1)
+          log=$(find unixnu/out -path '*/logs/payload-patch.log' | head -1)
+          test -n "$payload" && test -n "$report" && test -n "$log"
+          python3 overlay/scripts/pack_bootimg.py --uefi uefi --fd current-firmware/SILICIUM_UEFI.fd --payload "$payload" --dtb overlay/DeviceTree/lmi.dtb --payload-base 0x93200000 --out output/boot.img
+          cp current-firmware/SILICIUM_UEFI.fd output/
+          cp "$report" output/payload.json
+          cp "$log" output/payload-patch.log
+          cp lmipro/board.toml output/test-board.toml
+          cd output && shasum -a 256 boot.img kernel-original.macho SILICIUM_UEFI.fd > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lmipro-pmgr-lifecycle
+          path: |
+            output/
+            unixnu/out/**/logs/*.log
+          if-no-files-found: warn
+          retention-days: 3
