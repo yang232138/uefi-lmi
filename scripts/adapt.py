@@ -110,6 +110,50 @@ def patch_entry_arg(uefi):
         'SEC: dec guid')
 
 
+def patch_ramdisk(unixnu):
+    """Fall back to the reserved window when the boot loader's initrd is unusable.
+
+    The lmi boot loader reports an initrd address outside the RAM the firmware
+    maps, and reading it faults (ArmCpuDxe reports a second-level translation
+    fault). lmi.toml asks for ramdisk_addr 0x93200000 and MemoryMapLib reserves
+    exactly that 64 MiB, so use it whenever the reported value cannot work.
+    """
+    text_edit(
+        unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
+        '  StartProp = FdtGetProp (Fdt, Chosen, "linux,initrd-start", &StartLength);\n'
+        '  EndProp   = FdtGetProp (Fdt, Chosen, "linux,initrd-end", &EndLength);\n'
+        '  if ((StartProp == NULL) || (EndProp == NULL) ||\n'
+        '      ((StartLength != 4) && (StartLength != 8)) || ((EndLength != 4) && (EndLength != 8)))\n'
+        '  {\n'
+        '    DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: no initrd in /chosen\\n"));\n'
+        '    return;\n'
+        '  }\n'
+        '\n'
+        '  Start = ReadCells (StartProp, StartLength / 4);\n'
+        '  End   = ReadCells (EndProp, EndLength / 4);\n',
+        '  StartProp = FdtGetProp (Fdt, Chosen, "linux,initrd-start", &StartLength);\n'
+        '  EndProp   = FdtGetProp (Fdt, Chosen, "linux,initrd-end", &EndLength);\n'
+        '  if ((StartProp == NULL) || (EndProp == NULL) ||\n'
+        '      ((StartLength != 4) && (StartLength != 8)) || ((EndLength != 4) && (EndLength != 8)))\n'
+        '  {\n'
+        '    // lmi: no initrd was reported; use the window the boot image header asks\n'
+        '    // for and the firmware memory map reserves for it.\n'
+        '    Start = 0x93200000ULL;\n'
+        '    End   = Start + 0x04000000ULL;\n'
+        '    DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: no initrd in /chosen; using 0x%lx\\n", Start));\n'
+        '  } else {\n'
+        '    Start = ReadCells (StartProp, StartLength / 4);\n'
+        '    End   = ReadCells (EndProp, EndLength / 4);\n'
+        '    if ((Start < 0x80000000ULL) || ((End - Start) != 0x04000000ULL)) {\n'
+        '      // lmi: the reported range is outside the mapped RAM or the wrong size.\n'
+        '      DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: initrd 0x%lx-0x%lx unusable; using 0x93200000\\n", Start, End));\n'
+        '      Start = 0x93200000ULL;\n'
+        '      End   = Start + 0x04000000ULL;\n'
+        '    }\n'
+        '  }\n',
+        'ramdisk fallback window')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--unixnu', required=True, type=Path, help='UniXNU checkout')
@@ -119,6 +163,7 @@ def main():
     text_edit(args.unixnu / 'scripts/unixnu/bootimg.py',
               IMAGE_SIZE_OLD.replace('\n', '\n'), IMAGE_SIZE_NEW,
               'bootimg image_size')
+    patch_ramdisk(args.unixnu)
     if args.uefi:
         patch_entry_arg(args.uefi)
 
