@@ -17,6 +17,8 @@ device_revision = "fa4f4acf5830f94e17b4492944356e5d424f2a53"
 mu_revision = "e51cd877e31c8fbb322032dc4cb6715e83d25ad3"
 panic_screen = false
 entry_probe_reset_delay = 6
+entry_probe_reset_after = "_arm_vm_init"
+entry_probe_reset_in = "_arm_init"
 firmware_rebuilt = false
 kernel_rebuilt = false
 static_memory_map_changed = false
@@ -44,3 +46,10 @@ previous_panic_start = "0xfffffff0073f55c0"
 panic_cave_end = "0xfffffff0073f5ff0"
 reason = "Stage 3 consumes another 0x60 bytes; omit panic renderer rather than overwrite occupied kernel text"
 
+
+[mmu_checkpoint]
+run = 40844421997
+restarted_after_about_six_seconds = "confirmed by user"
+passed_mmu_enable = true
+next_call_site = "0xfffffff0079b9d50"
+next_callee = "0xfffffff0073ee9bc (_arm_vm_init)"
