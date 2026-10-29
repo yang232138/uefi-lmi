@@ -1,0 +1,26 @@
+[device]
+codename = "lmipro"
+fastboot_product = "lmi"
+
+[observation]
+source_run = 40840362988
+menu_verified = true
+xnu_entry_verified = true
+after_selection = "only green handoff bar, reported by user"
+xnu_entry_executed = "unverified"
+kernel_boot_success = false
+
+[diagnostic]
+documentation = "https://unixnu.com/zh/guide/debugging#交接时的绿色条"
+unixnu_revision = "ee472385743ebd16941ab14892dcb9d02e219d15"
+device_revision = "fa4f4acf5830f94e17b4492944356e5d424f2a53"
+mu_revision = "e51cd877e31c8fbb322032dc4cb6715e83d25ad3"
+panic_screen = true
+entry_probe_reset_delay = "not set; --no-reset"
+firmware_rebuilt = false
+kernel_rebuilt = false
+static_memory_map_changed = false
+original_kernel_modified = false
+payload_kernel_copy_patched = true
+cloud_build = "pending"
+hardware_test = "pending"

@@ -1,0 +1,84 @@
+name: Documented lmi XNU entry probe
+on:
+  push:
+    branches: [probe-lmi-entry-20261029]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  payload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: overlay
+      - uses: actions/download-artifact@v4
+        with:
+          name: lmi-handoff-boot-payload
+          run-id: 40840362988
+          github-token: ${{ github.token }}
+          path: menu-tested
+      - name: Fetch the pinned build tools and device configuration
+        run: |
+          mkdir unixnu && cd unixnu
+          git init -q
+          git remote add origin https://github.com/yang232138/UniXNU.git
+          git fetch -q --depth 1 origin ee472385743ebd16941ab14892dcb9d02e219d15
+          git checkout -q FETCH_HEAD
+          cd ..
+          mkdir lmipro && cd lmipro
+          git init -q
+          git remote add origin https://github.com/yang232138/lmipro.git
+          git fetch -q --depth 1 origin fa4f4acf5830f94e17b4492944356e5d424f2a53
+          git checkout -q FETCH_HEAD
+          cd ..
+          mkdir uefi && cd uefi
+          git init -q
+          git remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
+          git fetch -q --depth 1 origin e51cd877e31c8fbb322032dc4cb6715e83d25ad3
+          git checkout -q FETCH_HEAD
+          cd ..
+          cp -a overlay/BootShim/. uefi/BootShim/
+          cp -a overlay/Resources/. uefi/Resources/
+      - name: Install payload and probe tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld llvm mtools device-tree-compiler
+          python3 -m venv check-tools
+          check-tools/bin/pip install pyfatfs==1.1.0 'setuptools<81'
+      - name: Recover verified inputs and enable the documented probe
+        run: |
+          check-tools/bin/python overlay/scripts/entry_probe_inputs.py --source menu-tested --out inputs --board lmipro/board.toml
+      - name: Rebuild only the payload through the official driver
+        run: |
+          cd unixnu
+          ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          ./unixnu build payload -D ../lmipro --kernel ../inputs/kernel.macho --uefi ../uefi --unique-chip-id 0x8011
+      - name: Pack and verify the entry-probe image
+        run: |
+          payload=$(find unixnu/out -path '*/payload/payload.img' | head -1)
+          report=$(find unixnu/out -path '*/payload/payload.json' | head -1)
+          log=$(find unixnu/out -path '*/logs/payload-patch.log' | head -1)
+          test -n "$payload" && test -n "$report" && test -n "$log"
+          mkdir output
+          python3 overlay/scripts/pack_bootimg.py --uefi uefi --fd menu-tested/SILICIUM_UEFI.fd --payload "$payload" --dtb overlay/DeviceTree/lmi.dtb --payload-base 0x93200000 --out output/boot.img
+          cp "$report" output/payload.json
+          cp menu-tested/SILICIUM_UEFI.fd output/
+          cp lmipro/board.toml output/board.toml
+          cp overlay/docs/entry-probe.toml output/porting.toml
+          check-tools/bin/python overlay/scripts/verify_entry_probe.py --source menu-tested --out output --payload "$payload" --log "$log" --probe-script unixnu/scripts/patch-xnu-entry-probe.py
+          cd output && sha256sum boot.img SILICIUM_UEFI.fd > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lmi-documented-entry-probe
+          path: |
+            output/
+            unixnu/out/**/logs/payload*.log
+          if-no-files-found: warn
+          retention-days: 7
