@@ -17,7 +17,8 @@ device_revision = "fa4f4acf5830f94e17b4492944356e5d424f2a53"
 mu_revision = "e51cd877e31c8fbb322032dc4cb6715e83d25ad3"
 panic_screen = false
 entry_probe_reset_delay = 6
-entry_probe_reset_after = "_arm_vm_init"
+entry_probe_reset_after = "_PE_init_platform"
+entry_probe_reset_occurrence = 2
 entry_probe_reset_in = "_arm_init"
 firmware_rebuilt = false
 kernel_rebuilt = false
@@ -53,3 +54,9 @@ restarted_after_about_six_seconds = "confirmed by user"
 passed_mmu_enable = true
 next_call_site = "0xfffffff0079b9d50"
 next_callee = "0xfffffff0073ee9bc (_arm_vm_init)"
+
+[vm_checkpoint]
+run = 40845345912
+passed_arm_vm_init = "confirmed by user through six-second reset"
+next_call_site = "0xfffffff0079b9eb8"
+next_callee = "0xfffffff00794e158"

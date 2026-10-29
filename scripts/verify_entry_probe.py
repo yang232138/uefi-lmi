@@ -66,7 +66,7 @@ def main():
     assert report['panic_screen'] is False and report['kernel_args'] == '-v serial=3'
     assert report['trust_cache_sha256'] is None and report['data_ramdisk_sha256'] is None
     log = args.log.read_text()
-    assert 'stage 1 blue bar, stage 2 magenta bar, stage 4 reset after call #1 to _arm_vm_init in _arm_init' in log
+    assert 'stage 1 blue bar, stage 2 magenta bar, stage 4 reset after call #2 to _PE_init_platform in _arm_init' in log
     fd = (out / 'SILICIUM_UEFI.fd').read_bytes()
     assert sha(fd) == meta['fd_sha256'] == source['fd_sha256']
     assert meta['shim_sha256'] == source['shim_sha256']
@@ -101,8 +101,8 @@ def main():
                  adt_equivalent_except_random_seed=True, adt_random_seed_bytes=64,
                  source_adt_sha256=SOURCE_ADT_SHA, payload_adt_sha256=sha(adt),
                  original_kernel_rebuilt=False,
-                 entry_probe=True, panic_screen=False, timed_reset=True, reset_delay_seconds=6, reset_after="_arm_vm_init", reset_in="_arm_init",
-                 source_observation='prior run 40844421997 rebooted about six seconds after MMU enable, confirmed by user',
+                 entry_probe=True, panic_screen=False, timed_reset=True, reset_delay_seconds=6, reset_after="_PE_init_platform", reset_in="_arm_init", reset_occurrence=2,
+                 source_observation='prior run 40845345912 passed arm_vm_init and rebooted after six seconds, confirmed by user',
                  hardware_test='pending', boot_sha256=meta['image_sha256'])
     (out / 'probe-verification.json').write_text(json.dumps(check, indent=2) + '\n')
     print(json.dumps(check, indent=2))
