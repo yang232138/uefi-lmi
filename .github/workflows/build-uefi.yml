@@ -235,16 +235,25 @@ jobs:
           cd unixnu
           ./unixnu build payload -D ../lmipro --unique-chip-id "$UNIXNU_UNIQUE_CHIP_ID"
 
-      - name: Pack the boot image with the payload
+      - name: Pack the boot image with the payload in the kernel
+        # lmi's boot loader ignores the boot image's own ramdisk (like the 3a in
+        # UniXNU's asteroids record), so the payload rides after the firmware
+        # volume as an XNUP block that BootShim copies to 0x93200000, and the
+        # ramdisk field stays empty.
         run: |
-          cd unixnu
-          fd=$(find ../artifact -name 'SILICIUM_UEFI.fd' | head -1)
+          fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)
           test -n "$fd" || { echo 'the firmware artifact is missing the FD'; exit 1; }
-          payload=$(find out -name 'payload.img' | head -1)
+          payload=$(find unixnu/out -name 'payload.img' | head -1)
           test -n "$payload" || { echo 'no payload volume produced'; exit 1; }
-          ./unixnu bootimg -D ../lmipro --uefi ../uefi --fd "$fd" --dtb ../overlay/DeviceTree/lmi.dtb
-          echo '--- boot.json ---'
-          cat out/lmipro/*/*/boot/boot.json
+          out=unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/boot/boot.img
+          python3 overlay/scripts/pack_bootimg.py \
+            --uefi uefi \
+            --fd "$fd" \
+            --payload "$payload" \
+            --dtb overlay/DeviceTree/lmi.dtb \
+            --payload-base 0x93200000 \
+            --out "$out"
+          ls -l "$out"
 
       - name: Upload the boot image with the payload
         if: always()
@@ -253,7 +262,6 @@ jobs:
           name: lmi-boot-payload
           path: |
             unixnu/out/**/boot/boot.img
-            unixnu/out/**/boot/boot.json
             unixnu/out/**/payload/payload.json
           if-no-files-found: warn
           # Short retention: the payload carries kernel material derived from an
