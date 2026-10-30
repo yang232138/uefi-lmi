@@ -164,6 +164,20 @@ def patch_ramdisk(unixnu):
         'ramdisk logical partition')
 
 
+def patch_userdata_chunk(unixnu):
+    """Read the attached disk image in smaller blocks.
+
+    ``userdata.py`` reads 8 MiB at a time from /dev/rdiskN; macOS 26 answers
+    EINVAL for reads that large on a raw disk device, which aborted the
+    userdata build after the IPSW had already been extracted.
+    """
+    text_edit(
+        unixnu / 'scripts/unixnu/userdata.py',
+        'CHUNK = 8 * MIB\n',
+        'CHUNK = 1 * MIB  # lmi: /dev/rdiskN rejects 8 MiB reads on macOS 26 (EINVAL)\n',
+        'userdata chunk')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--unixnu', required=True, type=Path, help='UniXNU checkout')
@@ -174,6 +188,7 @@ def main():
               IMAGE_SIZE_OLD.replace('\n', '\n'), IMAGE_SIZE_NEW,
               'bootimg image_size')
     patch_ramdisk(args.unixnu)
+    patch_userdata_chunk(args.unixnu)
     if args.uefi:
         patch_entry_arg(args.uefi)
 
