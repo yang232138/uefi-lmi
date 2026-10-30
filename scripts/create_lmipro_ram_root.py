@@ -13,7 +13,7 @@ def run(*args):
         sys.stderr.buffer.write(result.stdout+result.stderr)
         result.check_returncode()
     return result.stdout
-run('hdiutil','create','-size','256m','-fs','APFS','-layout','GPTSPUD','-format','UDRW','-volname','LMIPRO_RAM_ROOT',image)
+run('hdiutil','create','-size','256m','-fs','APFS','-layout','GPTSPUD','-volname','LMIPRO_RAM_ROOT',image)
 attached=False
 try:
     attach=plistlib.loads(run('hdiutil','attach','-plist','-nobrowse','-mountpoint',mount,image));attached=True
