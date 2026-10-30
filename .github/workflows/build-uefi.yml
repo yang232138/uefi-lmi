@@ -267,3 +267,77 @@ jobs:
           # Short retention: the payload carries kernel material derived from an
           # Apple restore image. Keep it private if that matters to you.
           retention-days: 3
+
+  userdata:
+    # Builds the XNU root volume from the OS profile's IPSW. hdiutil is macOS
+    # only, and the extracted components plus the written image need roughly
+    # 20 GB, so the IPSW cache is dropped as soon as the image exists.
+    needs: firmware
+    runs-on: macos-26
+    timeout-minutes: 360
+    env:
+      UNIXNU_REPO: ${{ inputs.unixnu_repo }}
+      UNIXNU_REF: ${{ inputs.unixnu_ref }}
+      DEVICE_REPO: ${{ inputs.device_repo }}
+      DEVICE_REF: ${{ inputs.device_ref }}
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - name: Check out this overlay
+        uses: actions/checkout@v4
+        with:
+          path: overlay
+
+      - name: Check out UniXNU
+        run: git clone --depth 1 --branch "$UNIXNU_REF" "https://github.com/$UNIXNU_REPO" unixnu
+
+      - name: Check out the device repository
+        run: git clone --depth 1 --branch "$DEVICE_REF" "https://github.com/$DEVICE_REPO" lmipro
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Report the runner disk and the partition geometry
+        run: |
+          df -h "$GITHUB_WORKSPACE"
+          grep -E 'first_lba|last_lba|lba_bytes' lmipro/board.toml
+
+      - name: Resolve the device configuration
+        run: |
+          cd unixnu
+          ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          ./unixnu fetch -D ../lmipro
+
+      - name: Build the userdata root image
+        run: |
+          cd unixnu
+          ./unixnu build userdata -D ../lmipro
+          df -h "$GITHUB_WORKSPACE"
+          ls -lh out/lmipro/*/*/userdata/ || true
+          cat out/lmipro/*/*/userdata/userdata-root.json || true
+
+      - name: Free the IPSW cache
+        if: always()
+        run: rm -rf unixnu/out/ipsw || true
+
+      - name: Compress the image for upload
+        if: success()
+        run: |
+          img=$(find unixnu/out -name 'userdata-root.img' | head -1)
+          test -n "$img" || { echo 'no userdata image produced'; exit 1; }
+          ls -lh "$img"
+          # The image is mostly zero bytes; level 1 is fast and stays small.
+          gzip -1 "$img"
+          ls -lh "$img.gz"
+          df -h "$GITHUB_WORKSPACE"
+
+      - name: Upload the root image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmi-userdata-root
+          path: |
+            unixnu/out/**/userdata/userdata-root.img.gz
+            unixnu/out/**/userdata/userdata-root.json
+          if-no-files-found: warn
+          retention-days: 3
