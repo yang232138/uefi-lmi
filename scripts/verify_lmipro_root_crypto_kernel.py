@@ -28,7 +28,11 @@ for name,file in [('_verified_root_manifest','manifest.bin'),('_verified_root_ke
 assert struct.unpack('<Q',read('_verified_root_manifest_bytes',8))[0]==proof['manifest_bytes']
 assert struct.unpack('<4Q',read('_verified_root_sample_indices',32))==tuple(proof['actual_sample_indices'])
 assert struct.unpack('<4Q',read('_verified_root_sample_lengths',32))==(4096,)*4
-assert read('_native_verified_root_status',4)==bytes(4)
+status=names['_native_verified_root_status']
+sections=[s for segment in meta['segments'] for s in segment['sections'] if s['va']<=status and status+4<=s['va']+s['size']]
+assert len(sections)==1
+assert struct.unpack_from('<I',data,sections[0]['command_offset']+64)[0]&0xff==1
+assert sections[0]['fileoff']==0, 'Initial status must be in actual Mach-O S_ZEROFILL, initialized to zero by loader'
 assert b'LMIPRO ROOT fs=%s crypto=%u\n' in data
 source=(tree/'.cache/xnu-work/bsd/kern/bsd_init.c').read_text()
 assert 'if (autherr && !owner_authorized)' in source and 'FSIOC_KERNEL_ROOTAUTH' in source
