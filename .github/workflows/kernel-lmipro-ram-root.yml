@@ -1,0 +1,124 @@
+name: lmipro RAM root discovery test
+on:
+  push:
+    branches: [kernel-lmi-ram-root-20261030]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  kernel:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      GITHUB_TOKEN: ${{ github.token }}
+      LMIPRO_REFERENCE_DIR: ${{ github.workspace }}/qualified-kernel/output
+      LMIPRO_ORIGINAL_CACHE: ${{ github.workspace }}/unixnu/out/ipsw/21H461/kernelcache.decompressed
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: overlay
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Fetch the pinned sources
+        run: |
+          mkdir unixnu && cd unixnu
+          git init -q
+          git remote add origin https://github.com/yang232138/UniXNU.git
+          git fetch -q --depth 1 origin ee472385743ebd16941ab14892dcb9d02e219d15
+          git checkout -q FETCH_HEAD
+          cd ..
+          mkdir lmipro && cd lmipro
+          git init -q
+          git remote add origin https://github.com/yang232138/lmipro.git
+          git fetch -q --depth 1 origin 2a73e76bc0889100c622a7e8a3f8bac53f4fdf54
+          git checkout -q FETCH_HEAD
+          cd ..
+          mkdir uefi && cd uefi
+          git init -q
+          git remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
+          git fetch -q --depth 1 origin e51cd877e31c8fbb322032dc4cb6715e83d25ad3
+          git checkout -q FETCH_HEAD
+          cd ..
+          cp -a overlay/BootShim/. uefi/BootShim/
+          cp -a overlay/Resources/. uefi/Resources/
+      - name: Install the baseline toolchain
+        run: |
+          brew install llvm lld mtools dtc unifdef
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          xcodebuild -version
+      - name: Download the current verified firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: lmi-mmu-helper-payload
+          run-id: 40877381481
+          github-token: ${{ github.token }}
+          path: current-firmware
+      - name: Verify firmware and device records
+        run: |
+          python3 -c 'import pathlib,hashlib; p=pathlib.Path("current-firmware/SILICIUM_UEFI.fd"); assert p.stat().st_size==0x300000; assert hashlib.sha256(p.read_bytes()).hexdigest()=="720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6"'
+          python3 overlay/scripts/adapt.py --unixnu unixnu
+          cd unixnu
+          python3 scripts/porting-record.py check --device ../lmipro
+      - name: Download the qualified original-PMGR ABI reference
+        uses: actions/download-artifact@v4
+        with:
+          name: lmipro-pmgr-lifecycle
+          run-id: 40966779440
+          github-token: ${{ github.token }}
+          path: qualified-kernel
+      - name: Download the fresh bounded volatile APFS test seed
+        uses: actions/download-artifact@v4
+        with:
+          name: lmipro-volatile-apfs-seed
+          run-id: 41022670736
+          github-token: ${{ github.token }}
+          path: root-seed
+      - name: Resolve source inputs and fetch the pinned original cache before archive audits
+        run: |
+          cd unixnu
+          ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          ./unixnu fetch -D ../lmipro
+          ./unixnu ipsw fetch KernelCache -D ../lmipro
+          mkdir -p ../output
+          ./unixnu status --json -D ../lmipro > ../output/resolved-status.json
+      - name: Compile the kernel with real RamBlock and guarded original PMGR
+        run: |
+          cd unixnu
+          ./unixnu build kernel -D ../lmipro
+      - name: Verify the final source kernel and unchanged original executables
+        run: |
+          python3 overlay/scripts/verify_lmipro_ram_root_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --out output --device-revision 2a73e76bc0889100c622a7e8a3f8bac53f4fdf54
+          cp lmipro/porting.toml output/source-porting.toml
+      - name: Select the measured packed RAM root and existing publication mode
+        run: |
+          python3 overlay/scripts/select_lmipro_ram_root_payload.py
+          cd unixnu
+          ./unixnu build payload -D ../lmipro --kernel ../output/kernel-original.macho --data-ramdisk ../root-seed/test-root.dbrdisk --uefi ../uefi --unique-chip-id 0x8011
+      - name: Pack with the unchanged verified firmware
+        run: |
+          payload=$(find unixnu/out -path '*/payload/payload.img' | head -1)
+          report=$(find unixnu/out -path '*/payload/payload.json' | head -1)
+          log=$(find unixnu/out -path '*/logs/payload-patch.log' | head -1)
+          test -n "$payload" && test -n "$report" && test -n "$log"
+          python3 overlay/scripts/pack_bootimg.py --uefi uefi --fd current-firmware/SILICIUM_UEFI.fd --payload "$payload" --dtb overlay/DeviceTree/lmi.dtb --payload-base 0x93200000 --out output/boot.img
+          cp current-firmware/SILICIUM_UEFI.fd output/
+          cp "$report" output/payload.json
+          cp "$log" output/payload-patch.log
+          cp lmipro/board.toml output/test-board.toml
+          cp root-seed/test-root.dbrdisk root-seed/seed-proof.json root-seed/volume-info.json output/
+          cd output && shasum -a 256 boot.img kernel-original.macho SILICIUM_UEFI.fd > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lmipro-ram-root-test
+          path: |
+            output/
+            unixnu/out/**/logs/*.log
+          if-no-files-found: warn
+          retention-days: 3
