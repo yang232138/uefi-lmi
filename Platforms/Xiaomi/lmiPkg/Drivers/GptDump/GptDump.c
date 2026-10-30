@@ -184,9 +184,26 @@ GptDumpEntry (
   }
 
   FreePool (Handles);
-  Print (L"\r\nGPTDUMP: done; holding the screen\r\n");
-  /* Hold the output long enough to photograph it. */
-  gBS->Stall (30 * 1000 * 1000);
+  Print (L"\r\nGPTDUMP: done; press any key or wait two minutes\r\n");
+  /* Hold the output until a key is pressed or two minutes pass. */
+  {
+    EFI_INPUT_KEY  Key;
+    UINTN          Waited;
+
+    if (gST->ConIn != NULL) {
+      gST->ConIn->Reset (gST->ConIn, FALSE);
+    }
+
+    for (Waited = 0; Waited < 1200; Waited++) {
+      if ((gST->ConIn != NULL) &&
+          (gST->ConIn->ReadKeyStroke (gST->ConIn, &Key) == EFI_SUCCESS))
+      {
+        break;
+      }
+
+      gBS->Stall (100 * 1000);
+    }
+  }
 
   return EFI_SUCCESS;
 }
