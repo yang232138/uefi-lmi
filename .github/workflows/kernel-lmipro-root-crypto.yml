@@ -37,7 +37,7 @@ jobs:
           mkdir lmipro && cd lmipro
           git init -q
           git remote add origin https://github.com/yang232138/lmipro.git
-          git fetch -q --depth 1 origin 9bc9e8b8a0e9ffde40f37d36fb91774bc047a843
+          git fetch -q --depth 1 origin 00ed83e2e11848d143b75fcb8f8482e9d217bde2
           git checkout -q FETCH_HEAD
           cd ..
           mkdir uefi && cd uefi
@@ -97,13 +97,22 @@ jobs:
           ./unixnu ipsw fetch KernelCache -D ../lmipro
           mkdir -p ../output
           ./unixnu status --json -D ../lmipro > ../output/resolved-status.json
+      - name: Restore incremental source-kernel build products
+        id: xnu_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/tree/.cache
+            unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/tree/build
+          key: macos26-lmipro-root-crypto-v1-${{ github.sha }}
+          restore-keys: macos26-lmipro-root-crypto-v1-
       - name: Compile the kernel with real RamBlock and guarded original PMGR
         run: |
           cd unixnu
           ./unixnu build kernel -D ../lmipro
       - name: Verify the final source kernel and unchanged original executables
         run: |
-          python3 overlay/scripts/verify_lmipro_root_crypto_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --out output --device-revision 9bc9e8b8a0e9ffde40f37d36fb91774bc047a843
+          python3 overlay/scripts/verify_lmipro_root_crypto_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --out output --device-revision 00ed83e2e11848d143b75fcb8f8482e9d217bde2
           cp lmipro/porting.toml output/source-porting.toml
       - name: Select the measured packed RAM root and existing publication mode
         run: |
@@ -123,6 +132,14 @@ jobs:
           cp lmipro/board.toml output/test-board.toml
           cp root-seed/test-root.dbrdisk root-seed/seed-proof.json root-seed/volume-info.json output/
           cd output && shasum -a 256 boot.img kernel-original.macho SILICIUM_UEFI.fd > SHA256SUMS
+      - name: Preserve build products even when a later stage fails
+        if: ${{ always() && steps.xnu_cache.outputs.cache-primary-key != '' && steps.xnu_cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/tree/.cache
+            unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/tree/build
+          key: ${{ steps.xnu_cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

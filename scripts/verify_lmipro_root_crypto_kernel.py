@@ -10,6 +10,8 @@ tree=a.work/'tree';compiled=tree/'build/verified-root-xnu';policy=Path(os.enviro
 proof=json.loads((compiled/'inputs.json').read_text());sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 assert not proof['boot_root_authenticated'] and not proof['owner_root_trust_enabled']
 assert proof['official_probe_source_unmodified'] and proof['host_checks_passed']==7
+assert proof['strict_werror']
+assert all(value.endswith('/EXPORT_HDRS/libsa') for value in proof['absent_optional_libsa_include_dirs'])
 assert proof['archive_sha256']==sha(compiled/'libVerifiedRootProbe.a')
 assert proof['archive_sha256'] in (tree/'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.native-aes-link-input').read_text()
 assert proof['manifest_sha256']==sha(policy/'manifest.bin')=='8d8836c00d21b290c13b87ce9913d9f93d0cbf3a88d8d156f2511af7f031e229'
