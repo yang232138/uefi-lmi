@@ -1,4 +1,4 @@
-name: lmipro XNU root crypto and post-mount diagnostics
+name: lmipro verified RAM root binding audit
 on:
   push:
     branches: [kernel-lmi-root-crypto-20261030]
@@ -37,7 +37,7 @@ jobs:
           mkdir lmipro && cd lmipro
           git init -q
           git remote add origin https://github.com/yang232138/lmipro.git
-          git fetch -q --depth 1 origin 00ed83e2e11848d143b75fcb8f8482e9d217bde2
+          git fetch -q --depth 1 origin a9571d81f5d3e64c00f685d49673e3f7994a48c9
           git checkout -q FETCH_HEAD
           cd ..
           mkdir uefi && cd uefi
@@ -50,7 +50,7 @@ jobs:
           cp -a overlay/Resources/. uefi/Resources/
       - name: Install the baseline toolchain
         run: |
-          brew install llvm lld mtools dtc unifdef
+          brew install llvm lld mtools dtc unifdef openssl@3
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
           xcodebuild -version
       - name: Download the current verified firmware
@@ -97,6 +97,16 @@ jobs:
           ./unixnu ipsw fetch KernelCache -D ../lmipro
           mkdir -p ../output
           ./unixnu status --json -D ../lmipro > ../output/resolved-status.json
+      - name: Verify authenticated reads against actual signed policy and seed
+        run: |
+          mkdir host-verified-root && cd host-verified-root
+          git init -q
+          git remote add origin https://github.com/UniXNU/VerifiedRoot.git
+          git fetch -q --depth 1 origin def026642c6c6e71be0dea267d989df1d29ddc64
+          git checkout -q FETCH_HEAD
+          cd ..
+          python3 overlay/scripts/test_lmipro_verified_ram_read.py --cc "$(xcrun --find clang)" --openssl-prefix "$(brew --prefix openssl@3)" --out verified-read-host --kit host-verified-root --policy signed-policy/root-policy --seed root-seed/test-root.dbrdisk --implementation-dir lmipro/package
+          cp verified-read-host/read-integrity-checks.json output/verified-read-host-checks.json
       - name: Restore incremental source-kernel build products
         id: xnu_cache
         uses: actions/cache/restore@v4
@@ -112,7 +122,7 @@ jobs:
           ./unixnu build kernel -D ../lmipro
       - name: Verify the final source kernel and unchanged original executables
         run: |
-          python3 overlay/scripts/verify_lmipro_root_crypto_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --out output --device-revision 00ed83e2e11848d143b75fcb8f8482e9d217bde2
+          python3 overlay/scripts/verify_lmipro_verified_ram_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --out output --device-revision a9571d81f5d3e64c00f685d49673e3f7994a48c9
           cp lmipro/porting.toml output/source-porting.toml
       - name: Select the measured packed RAM root and existing publication mode
         run: |
@@ -143,7 +153,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: lmipro-root-crypto-test
+          name: lmipro-verified-ram-audit
           path: |
             output/
             unixnu/out/**/logs/*.log
