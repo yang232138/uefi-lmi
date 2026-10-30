@@ -31,4 +31,7 @@
   gEfiBlockIoProtocolGuid
 
 [Depex]
-  gEfiBlockIoProtocolGuid
+  # TRUE on purpose: the driver waits for BlockIO itself. With a BlockIO depex
+  # it was never dispatched before BDS (UFSDxe publishes late) and the output
+  # was hidden behind the UniXNU menu.
+  TRUE
