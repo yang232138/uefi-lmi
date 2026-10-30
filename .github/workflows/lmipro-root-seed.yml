@@ -1,0 +1,38 @@
+name: lmipro volatile APFS root seed
+on:
+  push:
+    branches: [root-seed-lmipro-20261030]
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  seed:
+    runs-on: macos-26
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Fetch the exact official packed-disk implementation
+        run: |
+          git init -q DarwinBoot
+          git -C DarwinBoot remote add origin https://github.com/UniXNU/DarwinBoot.git
+          git -C DarwinBoot fetch -q --depth 1 origin 3325e352d7df68a9f9ad74832ed94a6acbbd7390
+          git -C DarwinBoot checkout -q FETCH_HEAD
+      - name: Create only a workspace virtual disk and verify its packed roundtrip
+        run: python3 scripts/create_lmipro_ram_root.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lmipro-volatile-apfs-seed
+          path: |
+            root-seed/test-root.dbrdisk
+            root-seed/seed-proof.json
+            root-seed/volume-info.json
+            root-seed/creation.log
+          if-no-files-found: warn
+          retention-days: 3
