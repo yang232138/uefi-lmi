@@ -15,6 +15,10 @@ command=[a.cc,'-std=c11','-Wall','-Wextra','-Werror','-shared' if os.name=='nt' 
  '-I',str(a.kit/'include'),'-I',str(a.kit/'tests'),'-I',str(a.openssl_prefix/'include'),'-I',str(implementation),
  str(a.kit/'src/verified_root.c'),str(provider),str(implementation/'LmiproVerifiedRamIo.c'),
  '-L',str(a.openssl_prefix/'lib'),'-lcrypto','-o',str(library)]
+if sys.platform=='darwin':
+ sdk=subprocess.check_output(['xcrun','--sdk','macosx','--show-sdk-path'],text=True).strip()
+ assert Path(sdk,'usr/include/stdio.h').is_file()
+ command+=['-isysroot',sdk]
 subprocess.run(command,check=True)
 class View(ctypes.Structure):
  _fields_=[('hashes',ctypes.c_void_p),('image_bytes',ctypes.c_uint64),('block_count',ctypes.c_uint64),('generation',ctypes.c_uint64),('uuid',ctypes.c_uint8*16),('hash',ctypes.c_uint8*32)]
@@ -81,3 +85,4 @@ report=dict(real_current_rsa_policy_opened=True,exact_signed_root_sha256=hashlib
  unverified_bytes_published=False,kernel_execution=False,hardware_tested=False)
 (out/'read-integrity-checks.json').write_text(json.dumps(report,indent=2)+'\n')
 print('PASS:',len(checks),'read-integrity groups against real signed RAM image; host only')
+
