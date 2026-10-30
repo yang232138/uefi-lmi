@@ -302,6 +302,9 @@ jobs:
           df -h "$GITHUB_WORKSPACE"
           grep -E 'first_lba|last_lba|lba_bytes' lmipro/board.toml
 
+      - name: Adapt the pinned upstreams
+        run: python3 overlay/scripts/adapt.py --unixnu unixnu
+
       - name: Resolve the device configuration
         run: |
           cd unixnu
