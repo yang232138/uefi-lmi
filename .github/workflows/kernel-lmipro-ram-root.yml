@@ -36,7 +36,7 @@ jobs:
           mkdir lmipro && cd lmipro
           git init -q
           git remote add origin https://github.com/yang232138/lmipro.git
-          git fetch -q --depth 1 origin e968d21fa51e9cfd0db3415d12b428c24ffc1ee9
+          git fetch -q --depth 1 origin 614ac486548ebb0730c1abdd2c4c34ec2c24415b
           git checkout -q FETCH_HEAD
           cd ..
           mkdir uefi && cd uefi
@@ -93,7 +93,7 @@ jobs:
           ./unixnu build kernel -D ../lmipro
       - name: Verify the final source kernel and unchanged original executables
         run: |
-          python3 overlay/scripts/verify_lmipro_ram_root_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --out output --device-revision e968d21fa51e9cfd0db3415d12b428c24ffc1ee9
+          python3 overlay/scripts/verify_lmipro_ram_root_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --out output --device-revision 614ac486548ebb0730c1abdd2c4c34ec2c24415b
           cp lmipro/porting.toml output/source-porting.toml
       - name: Select the measured packed RAM root and existing publication mode
         run: |
