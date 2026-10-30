@@ -1,0 +1,56 @@
+name: lmipro signed root policy host checks
+on:
+  push:
+    branches: [policy-lmi-root-crypto-20261030]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  policy:
+    runs-on: macos-26
+    timeout-minutes: 15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Fetch exact official signature/parser and packed-seed sources
+        run: |
+          git init -q VerifiedRoot
+          git -C VerifiedRoot remote add origin https://github.com/UniXNU/VerifiedRoot.git
+          git -C VerifiedRoot fetch -q --depth 1 origin def026642c6c6e71be0dea267d989df1d29ddc64
+          git -C VerifiedRoot checkout -q FETCH_HEAD
+          git init -q DarwinBoot
+          git -C DarwinBoot remote add origin https://github.com/UniXNU/DarwinBoot.git
+          git -C DarwinBoot fetch -q --depth 1 origin 3325e352d7df68a9f9ad74832ed94a6acbbd7390
+          git -C DarwinBoot checkout -q FETCH_HEAD
+      - uses: actions/download-artifact@v4
+        with:
+          name: lmipro-volatile-apfs-seed
+          run-id: 41022670736
+          github-token: ${{ github.token }}
+          path: root-seed
+      - name: Verify actual C parser, RSA3072 signatures and negative controls
+        run: |
+          python3 VerifiedRoot/tests/check.py --output host-checks --openssl-prefix "$(brew --prefix openssl@3)"
+      - name: Sign the exact complete RAM seed and verify every block
+        run: python3 scripts/prepare_lmipro_signed_root_policy.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lmipro-root-crypto-policy
+          path: |
+            root-policy/manifest.bin
+            root-policy/trusted-key.bin
+            root-policy/manifest.json
+            root-policy/verification.json
+            root-policy/samples.bin
+            host-checks/checks.json
+          if-no-files-found: warn
+          retention-days: 3
