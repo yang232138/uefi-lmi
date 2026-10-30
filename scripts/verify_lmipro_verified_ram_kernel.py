@@ -4,9 +4,12 @@ import argparse,hashlib,json,os,shutil,struct,subprocess,sys
 ap=argparse.ArgumentParser();ap.add_argument('--work',type=Path,required=True);ap.add_argument('--out',type=Path,required=True);ap.add_argument('--device-revision',required=True)
 a=ap.parse_args()
 subprocess.run([sys.executable,str(Path(__file__).with_name('verify_lmipro_ram_root_kernel.py')),'--work',str(a.work),'--out',str(a.out),'--device-revision',a.device_revision],check=True)
-config=(a.work/'.config').read_text();assert 'CONFIG_XNU_VERIFIED_ROOT_PROBE=y' in config
-assert 'CONFIG_XNU_OWNER_ROOT_AUDIT=y' in config
-for flag in ['CONFIG_XNU_OWNER_ROOT_TRUST=y','CONFIG_XNU_NATIVE_VIRTIO_BLOCK=y','CONFIG_XNU_SOURCE_MOCKFS=y']:assert flag not in config
+sys.path.insert(0,str(a.work.resolve().parents[3]/'scripts'))
+from unixnu.config import parse_config
+config=parse_config((a.work/'.config').read_text())
+assert config['XNU_VERIFIED_ROOT_PROBE'] and config['XNU_OWNER_ROOT_AUDIT']
+for flag in ['XNU_OWNER_ROOT_TRUST','XNU_NATIVE_VIRTIO_BLOCK','XNU_SOURCE_MOCKFS']:
+    assert not config.get(flag,False),(flag,config.get(flag))
 tree=a.work/'tree';compiled=tree/'build/verified-root-xnu';policy=Path(os.environ['LMIPRO_ROOT_POLICY_DIR'])
 proof=json.loads((compiled/'inputs.json').read_text());sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 assert not proof['boot_root_authenticated'] and not proof['owner_root_trust_enabled']
@@ -71,3 +74,4 @@ report.update(root_crypto_probe_compiled=True,root_crypto_archive_sha256=proof['
     owner_root_binding_observed=False,readonly_mount_observed=False)
 (a.out/'kernel-build-proof.json').write_text(json.dumps(report,indent=2)+'\n')
 print('PASS: exact real-crypto inputs and official probe linked; root-authentication refusal and original Apple executables retained')
+
