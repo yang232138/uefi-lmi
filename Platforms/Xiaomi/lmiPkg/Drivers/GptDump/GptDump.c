@@ -141,17 +141,35 @@ GptDumpEntry (
   EFI_HANDLE             *Handles;
   UINTN                  Count;
   UINTN                  Index;
+  UINTN                  Attempt;
 
-  Status = gBS->LocateHandleBuffer (
-                  ByProtocol,
-                  &gEfiBlockIoProtocolGuid,
-                  NULL,
-                  &Count,
-                  &Handles
-                  );
-  if (EFI_ERROR (Status)) {
-    Print (L"GPTDUMP: no block devices (%r)\r\n", Status);
-    gBS->Stall (10 * 1000 * 1000);
+  Handles = NULL;
+  Count   = 0;
+  /* UFSDxe publishes its block devices late, and the menu would cover this
+     output, so wait here for them instead of relying on a BlockIO depex. */
+  for (Attempt = 0; Attempt < 40; Attempt++) {
+    Status = gBS->LocateHandleBuffer (
+                    ByProtocol,
+                    &gEfiBlockIoProtocolGuid,
+                    NULL,
+                    &Count,
+                    &Handles
+                    );
+    if (!EFI_ERROR (Status) && (Count > 0)) {
+      break;
+    }
+
+    if (Handles != NULL) {
+      FreePool (Handles);
+      Handles = NULL;
+    }
+
+    gBS->Stall (500 * 1000);
+  }
+
+  if ((Handles == NULL) || (Count == 0)) {
+    Print (L"\r\nGPTDUMP: no block devices after waiting\r\n");
+    gBS->Stall (15 * 1000 * 1000);
     return EFI_SUCCESS;
   }
 
