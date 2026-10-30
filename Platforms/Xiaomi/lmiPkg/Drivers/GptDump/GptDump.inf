@@ -1,0 +1,34 @@
+##
+#  Temporary bring-up driver: print the GPT of every block device.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = GptDump
+  FILE_GUID                      = 6D1B7C55-9C2E-4B3A-8F41-2E7D5A9B4C11
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = GptDumpEntry
+
+[Sources]
+  GptDump.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gEfiBlockIoProtocolGuid
+
+[Depex]
+  gEfiBlockIoProtocolGuid
