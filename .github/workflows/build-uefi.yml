@@ -246,8 +246,10 @@ jobs:
       - name: Build the trust cache bundle
         run: |
           cd unixnu
-          # The OS profile fetches both modules; assemble the bundle DarwinBoot
-          # validates and that [payload] trust_cache_sha256 pins.
+          # Extract the two modules the payload trust cache carries. The board has
+          # no [ipsw] fetch list, so name them explicitly.
+          ./unixnu ipsw fetch -D ../lmipro StaticTrustCache "Cryptex1,SystemTrustCache"
+          find out -type f | grep -i trust || true
           static=$(find out -type f | grep -i 'static.*trust' | head -1)
           system=$(find out -type f | grep -i 'system.*trust' | head -1)
           echo "static: $static"
