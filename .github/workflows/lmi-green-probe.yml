@@ -1,4 +1,4 @@
-name: lmi console creation checkpoint
+name: lmi serial initialization checkpoint
 'on':
   push:
     branches:
@@ -140,7 +140,7 @@ jobs:
 
         p=tomllib.loads(Path(''lmipro/board.toml'').read_text())[''payload'']
 
-        assert p[''entry_probe_reset_after'']==''_PE_create_console''
+        assert p[''entry_probe_reset_after'']==''_serial_init''
 
         assert p[''entry_probe_reset_in'']==''_arm_init'' and p[''entry_probe_reset_occurrence'']==1
 
@@ -216,7 +216,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-console-create-checkpoint
+        name: lmi-serial-init-checkpoint
         path: 'output/boot.img
 
           output/boot.json
