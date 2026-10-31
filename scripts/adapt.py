@@ -153,6 +153,62 @@ def patch_ramdisk(unixnu):
         '  }\n',
         'ramdisk fallback window')
 
+    # The boot loader's x0 is not a usable FDT on this board: it points outside
+    # the RAM the firmware maps (ArmCpuDxe reports a second-level translation
+    # fault with FAR equal to that pointer). Never dereference it in that case;
+    # publish the reserved window the boot image asked for.
+    text_edit(
+        unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
+        '  DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: initrd block device 0x%lx size 0x%lx %r\\n", Start, End - Start, Status));\n'
+        '}\n',
+        '  DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: initrd block device 0x%lx size 0x%lx %r\\n", Start, End - Start, Status));\n'
+        '}\n'
+        '\n'
+        'STATIC\n'
+        'VOID\n'
+        'PublishWindow (\n'
+        '  VOID\n'
+        '  )\n'
+        '{\n'
+        '  EFI_STATUS  Status;\n'
+        '  EFI_HANDLE  Handle;\n'
+        '\n'
+        '  mRamBase                = (UINT8 *)(UINTN)0x93200000ULL;\n'
+        '  mMedia.MediaId          = 1;\n'
+        '  mMedia.RemovableMedia   = FALSE;\n'
+        '  mMedia.MediaPresent     = TRUE;\n'
+        '  mMedia.LogicalPartition = TRUE;\n'
+        '  mMedia.ReadOnly         = TRUE;\n'
+        '  mMedia.WriteCaching     = FALSE;\n'
+        '  mMedia.BlockSize        = RAM_BLOCK_SIZE;\n'
+        '  mMedia.IoAlign          = 1;\n'
+        '  mMedia.LastBlock        = (0x04000000ULL / RAM_BLOCK_SIZE) - 1;\n'
+        '\n'
+        '  Handle = NULL;\n'
+        '  Status = gBS->InstallMultipleProtocolInterfaces (\n'
+        '                  &Handle,\n'
+        '                  &gEfiDevicePathProtocolGuid,\n'
+        '                  &mDevicePath,\n'
+        '                  &gEfiBlockIoProtocolGuid,\n'
+        '                  &mBlockIo,\n'
+        '                  NULL\n'
+        '                  );\n'
+        '  DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: reserved window 0x93200000 size 0x4000000 %r\\n", Status));\n'
+        '}\n',
+        'ramdisk publish window')
+    text_edit(
+        unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
+        '  Dtb = ReadUnaligned64 ((CONST UINT64 *)GET_GUID_HOB_DATA (Hob));\n',
+        '  Dtb = ReadUnaligned64 ((CONST UINT64 *)GET_GUID_HOB_DATA (Hob));\n'
+        '  if ((Dtb < 0x80000000ULL) || (Dtb >= 0x9FF00000ULL)) {\n'
+        '    // lmi: the boot loader\'s FDT pointer is outside the RAM the firmware\n'
+        '    // maps; dereferencing it faults. Use the reserved window instead.\n'
+        '    DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: x0 0x%lx is not in mapped RAM; using the reserved window\\n", Dtb));\n'
+        '    PublishWindow ();\n'
+        '    return EFI_SUCCESS;\n'
+        '  }\n',
+        'ramdisk fdt range')
+
     # The prebuilt PartitionDxe from Binaries/lmi faults while scanning this
     # volume (translation fault at FAR 0x119, third level). Publishing the block
     # device as a partition makes PartitionDxe skip it; EnhancedFatDxe then
