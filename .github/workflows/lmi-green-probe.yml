@@ -1,4 +1,4 @@
-name: lmi continue boot with official panic screen
+name: lmi restore qualified PMGR and continue without timed reset
 'on':
   push:
     branches:
@@ -18,9 +18,10 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: ee472385743ebd16941ab14892dcb9d02e219d15
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 0c1ba38ba608ce46d24f1ce9789895acea781e89
+      DEVICE_REF: 5693fb17d57bdcb9a7923d2d0a4e8252507fa48e
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
     - name: Check out this overlay
       uses: actions/checkout@v4
@@ -150,9 +151,15 @@ jobs:
 
         from pathlib import Path
 
-        p=Path(''lmipro/configs/lmipro_defconfig'')
+        import tomllib
 
-        p.write_text(p.read_text()+''\n# Use only the validated board DT panic region, never the BCM2837 fixed address.\nCONFIG_XNU_DT_PANIC_REGION=y\n'')
+        b=tomllib.loads(Path(''lmipro/board.toml'').read_text())
+
+        assert ''sheng-pmgr=2'' in b[''payload''][''kernel_args'']
+
+        s=Path(''lmipro/configs/lmipro_defconfig'').read_text()
+
+        assert ''CONFIG_XNU_DT_PANIC_REGION=y'' in s and ''CONFIG_XNU_SHENG_PMGR=y'' in s
 
         PY
 
@@ -185,17 +192,63 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
-        key: lmi-kernel-v3-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
+        key: lmi-kernel-pmgr-v4-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
           }}-${{ steps.source-revisions.outputs.config_sha }}-0x8011
-    - name: Build the kernel
+    - name: Select flag-off reference only on a source cache miss
+      run: 'python3 - <<''PY''
+
+        from pathlib import Path
+
+        p=Path(''lmipro/configs/lmipro_defconfig'');s=p.read_text()
+
+        assert s.count(''CONFIG_XNU_SHENG_PMGR=y'')==1
+
+        Path(''declared-lmipro_defconfig'').write_text(s)
+
+        p.write_text(s.replace(''CONFIG_XNU_SHENG_PMGR=y'',''# CONFIG_XNU_SHENG_PMGR is not set''))
+
+        PY
+
+        cd unixnu
+
+        ./unixnu defconfig lmipro_defconfig -D ../lmipro
+
+        ./unixnu status -D ../lmipro
+
+        '
       if: steps.kernel-cache.outputs.cache-hit != 'true'
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
+    - name: Build the fresh flag-off reference candidate
       run: 'cd unixnu
 
         ./unixnu build kernel -D ../lmipro
 
         '
+      if: steps.kernel-cache.outputs.cache-hit != 'true'
+    - name: Audit this job reference against the pinned original cache
+      run: 'python3 overlay/diagnostics/prepare_lmipro_pmgr_reference.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro
+        --cache unixnu/out/ipsw/21H461/kernelcache.decompressed --out output
+
+        '
+      if: steps.kernel-cache.outputs.cache-hit != 'true'
+    - name: Restore declared configuration and link the PMGR integration
+      run: 'cp declared-lmipro_defconfig lmipro/configs/lmipro_defconfig
+
+        cd unixnu
+
+        ./unixnu defconfig lmipro_defconfig -D ../lmipro
+
+        ./unixnu status --json -D ../lmipro > ../output/resolved-status.json
+
+        ./unixnu build kernel -D ../lmipro
+
+        '
+      if: steps.kernel-cache.outputs.cache-hit != 'true'
+    - name: Verify actual PMGR link and original executable contracts
+      run: 'python3 overlay/diagnostics/verify_lmipro_pmgr_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro
+        --out output --device-revision 5693fb17d57bdcb9a7923d2d0a4e8252507fa48e
+
+        '
+      if: steps.kernel-cache.outputs.cache-hit != 'true'
     - name: Preserve actual DT-panic compile evidence alongside its kernel
       if: steps.kernel-cache.outputs.cache-hit != 'true'
       run: 'python3 - <<''PY''
@@ -231,12 +284,45 @@ jobs:
         PY
 
         '
+    - name: Preserve PMGR build evidence with the exact source kernel
+      run: "python3 - <<'PY'\nfrom pathlib import Path\nimport shutil\np=Path('unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/kernel/pmgr-proof');p.mkdir(exist_ok=True)\n\
+        for f in ['kernel-build-proof.json','pmgr-archive-proof.json','reference-inputs.json','reference-amfi-pmgr-audit.json','final-amfi-pmgr-audit.json','pmgr-hook-disassembly.txt']:\n\
+        \    shutil.copyfile(Path('output')/f,p/f)\nPY\n"
+      if: steps.kernel-cache.outputs.cache-hit != 'true'
     - name: Preserve the qualified source kernel before payload diagnostics
       uses: actions/cache/save@v4
       if: steps.kernel-cache.outputs.cache-hit != 'true'
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
         key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
+    - name: Load and qualify PMGR evidence before constructing the payload
+      run: 'python3 - <<''PY''
+
+        from pathlib import Path
+
+        import hashlib,json,shutil
+
+        root=Path(''unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro'');out=Path(''output'');out.mkdir(exist_ok=True)
+
+        for p in (root/''kernel/pmgr-proof'').iterdir():shutil.copyfile(p,out/p.name)
+
+        proof=json.loads((out/''kernel-build-proof.json'').read_text())
+
+        assert proof[''device_revision'']==''5693fb17d57bdcb9a7923d2d0a4e8252507fa48e''
+
+        assert proof[''unixnu_revision'']==''ee472385743ebd16941ab14892dcb9d02e219d15''
+
+        assert proof[''kernel_sha256'']==hashlib.sha256((root/''kernel/kernel.macho'').read_bytes()).hexdigest()
+
+        assert proof[''pmgr_mode_compiled'']==proof[''dt_panic_mode_compiled'']==1 and proof[''pmgr_virtual_entries'']==340
+
+        assert proof[''bsd_hook_verified''] and proof[''original_amfi_and_pmgr_executables_verified_unchanged'']
+
+        assert proof[''functional_power_backend''] is False
+
+        PY
+
+        '
     - name: Build the trust cache bundle
       run: "cd unixnu\n# Extract the two modules the payload trust cache carries. The board has\n# no [ipsw] fetch list, so\
         \ name them explicitly.\n./unixnu ipsw fetch -D ../lmipro StaticTrustCache \"Cryptex1,SystemTrustCache\"\n# The extracted\
@@ -263,7 +349,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-dt-continue-panic
+        name: lmi-pmgr-restored-continue
         path: 'output/boot.img
 
           output/boot.json
@@ -287,6 +373,21 @@ jobs:
           unixnu/out/**/logs/*.log
 
           output/dt-panic-compile-proof.json
+
+
+          output/kernel-original.macho
+
+          output/kernel-build-proof.json
+
+          output/pmgr-archive-proof.json
+
+          output/reference-inputs.json
+
+          output/reference-amfi-pmgr-audit.json
+
+          output/final-amfi-pmgr-audit.json
+
+          output/pmgr-hook-disassembly.txt
 
           '
         if-no-files-found: warn

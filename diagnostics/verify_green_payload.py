@@ -3,8 +3,17 @@ import hashlib,importlib.util,json,os,shutil,struct,subprocess,tomllib,zlib
 root=Path('unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro');out=Path('output');out.mkdir(exist_ok=True)
 raw=root/'kernel/kernel.macho';volume=root/'payload/payload.img';report=json.loads((root/'payload/payload.json').read_text())
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
-assert report['panic_screen'] is True and report['kernel_sha256']==sha(raw)=='fd3c535759026d11c97a66e08e066b19e4e189e92c03804dd2b2f1f696eb614f'
+assert report['panic_screen'] is True and report['kernel_sha256']==sha(raw)
 assert report['payload_kernel_sha256']!=sha(raw)
+
+pmgr=json.loads((out/'kernel-build-proof.json').read_text())
+assert pmgr['kernel_sha256']==sha(raw) and pmgr['bsd_hook_verified']
+assert pmgr['pmgr_mode_compiled']==pmgr['dt_panic_mode_compiled']==1 and pmgr['pmgr_virtual_entries']==340
+assert pmgr['original_amfi_and_pmgr_executables_verified_unchanged']
+assert report['kernel_args']=='-v serial=3 boot-progress=2 sheng-pmgr=2'
+cfg=(root/'.config').read_text();assert 'CONFIG_XNU_SHENG_PMGR=y' in cfg
+assert 'CONFIG_XNU_NATIVE_UFS=y' not in cfg
+
 subprocess.run(['mcopy','-o','-i',str(volume),'::EFI/UniXNU/Payloads/kernel.macho',str(out/'kernel-probed.macho')],check=True)
 patched=(out/'kernel-probed.macho').read_bytes();assert hashlib.sha256(patched).hexdigest()==report['payload_kernel_sha256']
 script=Path('unixnu/scripts/patch-xnu-entry-probe.py')
@@ -77,7 +86,7 @@ assert z.unused_data==Path('overlay/DeviceTree/lmi.dtb').read_bytes()
 meta=dict(image_sha256=sha(out/'boot.img'),shim_bytes=shim,firmware_sha256=sha(fd),payload_sha256=sha(volume),header_version=version,page_bytes=page,report_source='parsed actual packed image and round-tripped exact inputs')
 (out/'boot.json').write_text(json.dumps(meta,indent=2)+'\n')
 proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel_sha256=hashlib.sha256(patched).hexdigest(),
- fd_sha256=sha(fd),dt_panic_region_enabled=True,fixed_bcm_panic_mapping_removed=True,entry_hooks_verified=True,panic_hooks_verified=True,other_kernel_bytes_unchanged=True,
+ fd_sha256=sha(fd),dt_panic_region_enabled=True,fixed_bcm_panic_mapping_removed=True,pmgr_mode_compiled=1,pmgr_runtime_mode=2,pmgr_virtual_entries=340,pmgr_bsd_hook_verified=True,original_amfi_and_pmgr_executables_unchanged=True,functional_power_backend=False,entry_hooks_verified=True,panic_hooks_verified=True,other_kernel_bytes_unchanged=True,
  official_probe_replay_identical=True,reset_delay_seconds=0,timed_reset=False,reset_checkpoint='none; continue normal execution and display actual panic',
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),

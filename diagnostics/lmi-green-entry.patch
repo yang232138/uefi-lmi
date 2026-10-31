@@ -1,17 +1,19 @@
 --- a/board.toml
 +++ b/board.toml
-@@ -81,11 +81,9 @@
+@@ -84,6 +84,7 @@
+ BUILDID_STRING = "lmipro-research"
+ 
+ [payload]
++panic_screen = true
+ volume = "LMIPROESP"
+ # boot is 128 MiB on this handset (single slot; from fastboot getvar
+ # partition-size:boot = 0x8000000). 64 MiB matches the 64 MiB the firmware
+@@ -92,7 +93,7 @@
+ size_mib = 64
  loader = "firmware"
  title = "Redmi K30 Pro"
- kernel_args = ["-v", "serial=3", "boot-progress=2"]
--# entry_probe_reset_delay is deliberately absent: the probe resets the phone a
--# few seconds into the kernel, which would hide any later stage.
--# panic_screen is off: its entry-probe patch stalls the kernel before the MMU
--# is enabled, which hides the very failures it is meant to show.
--panic_screen = false
-+# Continue normal kernel execution; retain the official panic display.
-+# No timed reset checkpoint is installed.
-+panic_screen = true
+-kernel_args = ["-v", "serial=3"]
++kernel_args = ["-v", "serial=3", "boot-progress=2", "sheng-pmgr=2"]
  
  [payload.adt]
  # The platform seed is never stored in a repository: payload builds take it from
