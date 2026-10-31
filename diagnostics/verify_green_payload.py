@@ -1,5 +1,5 @@
 from pathlib import Path
-import hashlib,importlib.util,json,os,shutil,struct,subprocess,tomllib
+import hashlib,importlib.util,json,os,shutil,struct,subprocess,tomllib,zlib
 root=Path('unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro');out=Path('output');out.mkdir(exist_ok=True)
 raw=root/'kernel/kernel.macho';volume=root/'payload/payload.img';report=json.loads((root/'payload/payload.json').read_text())
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
@@ -30,7 +30,7 @@ os.environ['UNIXNU_UEFI']=str(Path('uefi').resolve())
 subprocess.run(['python3',str(script),str(replay),'--reset-delay','6'],check=True)
 assert replay.read_bytes()==patched
 replay.unlink()
-for file in ['boot.img','boot.json']:
+for file in ['boot.img']:
  candidate=root/'boot'/file
  assert candidate.is_file(),file
  shutil.copyfile(candidate,out/file)
@@ -42,7 +42,14 @@ shutil.copyfile('overlay/DeviceTree/lmi.dtb',out/'firmware.dtb')
 for file in ['payload-patch.log','kernel.log']:
  f=root/'logs'/file
  if f.exists():shutil.copyfile(f,out/file)
-meta=json.loads((out/'boot.json').read_text());assert meta['image_sha256']==sha(out/'boot.img')
+boot=(out/'boot.img').read_bytes();ksize,kaddr,rd,_,second,_,tags,page,version,_=struct.unpack_from('<10I',boot,8)
+assert boot[:8]==b'ANDROID!' and (rd,second,tags,page,version)==(0,0,0x100,4096,1)
+z=zlib.decompressobj(31);back=z.decompress(boot[page:page+ksize]);assert z.eof
+firmware=fd.read_bytes();shim=back.find(firmware);assert 0<shim<4096
+assert back[shim+len(firmware):]==b'XNUP'+struct.pack('<I',volume.stat().st_size)+volume.read_bytes()
+assert z.unused_data==Path('overlay/DeviceTree/lmi.dtb').read_bytes()
+meta=dict(image_sha256=sha(out/'boot.img'),shim_bytes=shim,firmware_sha256=sha(fd),payload_sha256=sha(volume),header_version=version,page_bytes=page,report_source='parsed actual packed image and round-tripped exact inputs')
+(out/'boot.json').write_text(json.dumps(meta,indent=2)+'\n')
 proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel_sha256=hashlib.sha256(patched).hexdigest(),
  fd_sha256=sha(fd),entry_hooks_verified=True,panic_hooks_verified=False,other_kernel_bytes_unchanged=True,
  official_probe_replay_identical=True,reset_delay_seconds=6,reset_checkpoint='immediately after enabling MMU, before platform/storage initialization',
