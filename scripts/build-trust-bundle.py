@@ -85,6 +85,11 @@ def main():
 
     static = args.static.read_bytes()
     cryptex = args.system.read_bytes()
+
+    # The IPSW ships both as IM4P blobs (the static one too on this build);
+    # unwrap whichever is not already a bare version-2 module.
+    if not module_ok(static):
+        static = im4p_payload(static)
     system = im4p_payload(cryptex)
 
     if not module_ok(static):
