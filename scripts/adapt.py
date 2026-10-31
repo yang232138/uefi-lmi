@@ -234,6 +234,24 @@ def patch_userdata_chunk(unixnu):
         'userdata chunk')
 
 
+def patch_adt_root_uuid(unixnu):
+    """Accept the root-match flag that payload.py forwards.
+
+    ``unixnu/devicetree.py`` already emits ``/chosen/root-matching`` from
+    ``board.toml [payload.adt] root_match_volume_uuid``; only the argparse in
+    ``make-adt.py`` lacks the flag, so the payload step died with an unknown
+    argument before the generator ever ran.
+    """
+    text_edit(
+        unixnu / 'scripts/make-adt.py',
+        "parser.add_argument('--gpu-addon', action='store_true')\n",
+        "parser.add_argument('--gpu-addon', action='store_true')\n"
+        "# payload.py forwards the root UUID; devicetree.generate reads the value\n"
+        "# from the merged profiles, so this flag only has to be accepted.\n"
+        "parser.add_argument('--root-match-volume-uuid')\n",
+        'adt root uuid')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--unixnu', required=True, type=Path, help='UniXNU checkout')
@@ -245,6 +263,7 @@ def main():
               'bootimg image_size')
     patch_ramdisk(args.unixnu)
     patch_userdata_chunk(args.unixnu)
+    patch_adt_root_uuid(args.unixnu)
     if args.uefi:
         patch_entry_arg(args.uefi)
 
