@@ -1,0 +1,193 @@
+name: lmi documented green-handoff diagnostic
+'on':
+  push:
+    branches:
+    - lmi-green-probe-20261031
+  workflow_dispatch: null
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  probe:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      UNIXNU_REPO: yang232138/UniXNU
+      UNIXNU_REF: ee472385743ebd16941ab14892dcb9d02e219d15
+      DEVICE_REPO: yang232138/lmipro
+      DEVICE_REF: 0c1ba38ba608ce46d24f1ce9789895acea781e89
+      MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+    - name: Check out this overlay
+      uses: actions/checkout@v4
+      with:
+        path: overlay
+    - name: Check out UniXNU
+      run: 'mkdir unixnu
+
+        git -C unixnu init -q
+
+        git -C unixnu remote add origin "https://github.com/$UNIXNU_REPO"
+
+        git -C unixnu fetch -q --depth 1 origin "$UNIXNU_REF"
+
+        git -C unixnu checkout -q FETCH_HEAD
+
+        '
+    - name: Check out the device repository
+      run: 'mkdir lmipro
+
+        git -C lmipro init -q
+
+        git -C lmipro remote add origin "https://github.com/$DEVICE_REPO"
+
+        git -C lmipro fetch -q --depth 1 origin "$DEVICE_REF"
+
+        git -C lmipro checkout -q FETCH_HEAD
+
+        '
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install the host tools
+      run: 'brew install llvm lld mtools dtc unifdef
+
+        # Homebrew LLVM is keg-only; bootimg needs llvm-objcopy and llvm-nm by name.
+
+        echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+
+        '
+    - name: Report the runner toolchain
+      run: 'xcodebuild -version
+
+        df -h "$GITHUB_WORKSPACE"
+
+        '
+    - name: Download the firmware volume
+      uses: actions/download-artifact@v4
+      with:
+        name: lmi-mmu-helper-payload
+        path: artifact
+        run-id: 40877381481
+        github-token: ${{ github.token }}
+    - name: Fetch Mu-Silicium for the boot image tools
+      run: 'mkdir uefi && cd uefi
+
+        git init -q
+
+        git remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
+
+        git fetch -q --depth 1 origin "$MU_COMMIT"
+
+        git checkout -q FETCH_HEAD
+
+        cd ..
+
+        cp -a overlay/BootShim/. uefi/BootShim/
+
+        cp -a overlay/Resources/. uefi/Resources/
+
+        test -f uefi/Resources/Scripts/mkbootimg.py
+
+        '
+    - name: Adapt the pinned upstreams
+      run: python3 overlay/scripts/adapt.py --unixnu unixnu
+    - name: Apply the reviewed official entry diagnostic and qualify firmware
+      run: 'git -C lmipro apply --check "$GITHUB_WORKSPACE/overlay/diagnostics/lmi-green-entry.patch"
+
+        git -C lmipro apply "$GITHUB_WORKSPACE/overlay/diagnostics/lmi-green-entry.patch"
+
+        python3 - <<''PY''
+
+        from pathlib import Path
+
+        import hashlib,tomllib
+
+        fd=next(Path(''artifact'').rglob(''SILICIUM_UEFI.fd''))
+
+        assert fd.stat().st_size==0x300000
+
+        assert hashlib.sha256(fd.read_bytes()).hexdigest()==''720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6''
+
+        b=tomllib.loads(Path(''lmipro/board.toml'').read_text())
+
+        assert b[''payload''][''panic_screen''] and b[''payload''][''entry_probe_reset_delay'']==6
+
+        PY
+
+        '
+    - name: Resolve the device configuration
+      run: 'cd unixnu
+
+        ./unixnu defconfig lmipro_defconfig -D ../lmipro
+
+        # The kernel patch series references kits/XnuPrelink, which only exists
+
+        # after the feeds and submodules are fetched.
+
+        ./unixnu fetch -D ../lmipro
+
+        ./unixnu status -D ../lmipro
+
+        '
+    - name: Record immutable source revisions for the kernel cache
+      id: source-revisions
+      run: 'echo "unixnu_sha=$(git -C unixnu rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+        echo "device_sha=$(git -C lmipro rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+        '
+    - name: Restore the built kernel
+      id: kernel-cache
+      uses: actions/cache@v4
+      with:
+        path: unixnu/out/lmipro/*/lmipro/kernel
+        key: lmi-kernel-v2-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
+          }}-0x8011
+    - name: Build the kernel
+      if: steps.kernel-cache.outputs.cache-hit != 'true'
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: 'cd unixnu
+
+        ./unixnu build kernel -D ../lmipro
+
+        '
+    - name: Build the trust cache bundle
+      run: "cd unixnu\n# Extract the two modules the payload trust cache carries. The board has\n# no [ipsw] fetch list, so\
+        \ name them explicitly.\n./unixnu ipsw fetch -D ../lmipro StaticTrustCache \"Cryptex1,SystemTrustCache\"\n# The extracted\
+        \ files are named after the IPSW members (044-...dmg.trustcache),\n# so pair them by the component recorded in the\
+        \ sidecar JSON.\nstatic=$(grep -l '\"component\": \"StaticTrustCache\"' out/ipsw/*/*.json | head -1)\nsystem=$(grep\
+        \ -l '\"component\": \"Cryptex1,SystemTrustCache\"' out/ipsw/*/*.json | head -1)\nstatic=${static%.json}\nsystem=${system%.json}\n\
+        echo \"static: $static\"\necho \"system: $system\"\ntest -f \"$static\" && test -f \"$system\"\npython3 ../overlay/scripts/build-trust-bundle.py\
+        \ \\\n  --static \"$static\" \\\n  --system \"$system\" \\\n  --output trust.bundle \\\n  --report trust.json\ncat\
+        \ trust.json\n"
+    - name: Build the payload
+      env:
+        UNIXNU_UNIQUE_CHIP_ID: '0x8011'
+      run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload -D ../lmipro\
+        \ \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache trust.bundle\n"
+    - name: Pack the boot image with the payload in the kernel
+      run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact is missing\
+        \ the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\" || { echo 'no\
+        \ payload volume produced'; exit 1; }\nout=unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/boot/boot.img\npython3 overlay/scripts/pack_bootimg.py\
+        \ \\\n  --uefi uefi \\\n  --fd \"$fd\" \\\n  --payload \"$payload\" \\\n  --dtb overlay/DeviceTree/lmi.dtb \\\n  --payload-base\
+        \ 0x93200000 \\\n  --out \"$out\"\nls -l \"$out\"\n"
+    - name: Verify actual payload probe installation and collect inputs
+      run: python3 overlay/diagnostics/verify_green_payload.py
+    - name: Upload the boot image with the payload
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: lmi-documented-entry-probe
+        path: 'output/
+
+          unixnu/out/**/logs/*.log
+
+          '
+        if-no-files-found: warn
+        retention-days: 3
