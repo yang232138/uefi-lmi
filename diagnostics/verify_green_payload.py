@@ -52,7 +52,7 @@ proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel
  official_probe_replay_identical=True,reset_delay_seconds=6,reset_checkpoint='immediately after enabling MMU, before platform/storage initialization',
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),
- firmware_source='same qualified FD preserved in artifact41046774501, exact digest checked',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')
+ firmware_source='identical photo-qualified FD720481eb preserved as a pinned compressed branch input',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))

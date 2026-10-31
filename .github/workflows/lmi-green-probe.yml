@@ -67,13 +67,26 @@ jobs:
         df -h "$GITHUB_WORKSPACE"
 
         '
-    - name: Download the firmware volume
-      uses: actions/download-artifact@v4
-      with:
-        name: lmipro-verified-ram-audit
-        path: artifact
-        run-id: 41046774501
-        github-token: ${{ github.token }}
+    - name: Restore the exact qualified firmware input
+      run: 'python3 - <<''PY''
+
+        from pathlib import Path
+
+        import gzip,hashlib
+
+        p=Path(''artifact'');p.mkdir()
+
+        b=gzip.decompress(Path(''overlay/diagnostics/qualified-SILICIUM_UEFI.fd.gz'').read_bytes())
+
+        assert len(b)==0x300000
+
+        assert hashlib.sha256(b).hexdigest()==''720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6''
+
+        (p/''SILICIUM_UEFI.fd'').write_bytes(b)
+
+        PY
+
+        '
     - name: Fetch Mu-Silicium for the boot image tools
       run: 'mkdir uefi && cd uefi
 
