@@ -58,6 +58,7 @@ jobs:
             artifact/SHA256SUMS
             artifact/expected-metadata.json
             artifact/core-test-results.json
+            artifact/loader-path-tests.json
             artifact/unixnu.toml
             artifact/porting.toml
             artifact/README.md

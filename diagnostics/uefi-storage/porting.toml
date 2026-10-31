@@ -1,6 +1,6 @@
 device = "lmipro"
-stage = "uefi-storage-driver-dependency-inventory"
-status = "v1-hardware-ram-only-v2-awaiting-build-and-hardware"
+stage = "uefi-fv-identity-load-without-start"
+status = "v2-dependencies-present-no-ufs-image-v3-awaiting-build"
 parent_overlay_commit = "43fb473f3655c7898079eede9f02badd53b1015f"
 mu_commit = "e51cd877e31c8fbb322032dc4cb6715e83d25ad3"
 basecore_commit = "cfb93724a06ff86ff5ba971413368a7809ee42a5"
@@ -8,7 +8,7 @@ unixnu_documentation_commit = "ee472385743ebd16941ab14892dcb9d02e219d15"
 firmware_sha256 = "720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6"
 shim_sha256 = "fca5c1e7fd9b455c27c4039a66c27792c0f475a515b0e4f3bf0a088fcf256195"
 root_uuid_sample = "04769D26-2CA0-4825-B443-E2E5F88300F2"
-disk_access = "EFI_BLOCK_IO_PROTOCOL.ReadBlocks only"
+disk_access = "No disk method calls; normal FV LoadImage/UnloadImage; never StartImage"
 direct_mmio = false
 controller_reset = false
 disk_writes = false
@@ -22,3 +22,8 @@ v1_physical_disks = 0
 v1_reads = 0
 ufs_depex = ["f4e5c7d0-d239-47cb-aacd-7f66ef763238", "fa5f306b-f47d-4ac4-a47d-882f8204ec30"]
 forced_driver_start = false
+
+load_image_probe = true
+start_image = false
+block_io_reads_enabled = false
+ufs_pe_sha256 = "ffeaed467f8251b7e30a45075da84a1c563e2bac7dc4be0f79f0ed49a88b8dc9"

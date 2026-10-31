@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent
  * Standalone EFI application, loaded by UniXNU's documented type="efi" entry.
- * Calls BlockIo.ReadBlocks only. No Reset/WriteBlocks/FlushBlocks calls, no MMIO,
- * SCSI passthrough, SetVariable, ConnectController or ExitBootServices.
+ * V3 adds authenticated FV identity + normal LoadImage/UnloadImage probe.
+ * Never calls StartImage or any UFS/controller method. No MMIO or disk writes.
  */
 #include <Uefi.h>
 #include <Protocol/BlockIo.h>
@@ -9,6 +9,9 @@
 #include <Protocol/DevicePathToText.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/DriverBinding.h>
+#include <Pi/PiFirmwareFile.h>
+#include <Pi/PiFirmwareVolume.h>
+#include <Protocol/FirmwareVolume2.h>
 #include "StorageCore.h"
 #include "FirmwareNames.h"
 
@@ -20,9 +23,14 @@ static EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *PathText;
 static EFI_GUID LoadedGuid=EFI_LOADED_IMAGE_PROTOCOL_GUID;
 static EFI_GUID BindingGuid=EFI_DRIVER_BINDING_PROTOCOL_GUID;
 static UINTN SmemPresent,SpmiPresent,UfsLoaded,UfsBindings,LoadedCount,BindingCount;
+static EFI_GUID FvGuid=EFI_FIRMWARE_VOLUME2_PROTOCOL_GUID;
+static EFI_GUID UfsGuid={0x0d35cd8e,0x97ea,0x4f9a,{0x96,0xaf,0x0f,0x0d,0x89,0xf7,0x65,0x67}};
+static EFI_HANDLE ThisImage;
+static UINTN FvCount,FvMatches,UfsHashMatch,LoadAttempted,UnloadAttempted;
+static EFI_STATUS FvReadStatus=EFI_NOT_READY,LoadStatus=EFI_NOT_READY,UnloadStatus=EFI_NOT_READY;
 static char Logs[512][160];
 static UINTN LogCount;
-static UINTN AllReads,ReadFailures,BytesRead,PhysicalDisks,Partitions,Targets,Passed;
+static UINTN AllReads,ReadFailures,PhysicalDisks,Partitions,Targets,Passed;
 static RO_RESULT Last;
 static EFI_STATUS LastStatus;
 static char Text[160];
@@ -64,30 +72,6 @@ static VOID setup_console(void) {
   ST->ConOut->SetAttribute(ST->ConOut,EFI_WHITE|EFI_BACKGROUND_BLACK);
   ST->ConOut->EnableCursor(ST->ConOut,FALSE);clear();
 }
-typedef struct { EFI_BLOCK_IO_PROTOCOL *io; UINT64 base; UINT64 bytes; UINTN id; } IO_CTX;
-static int read_bytes(void *context,uint64_t at,size_t n,void *dest) {
-  IO_CTX *c=context;EFI_BLOCK_IO_PROTOCOL *io=c->io;
-  if(!io||!io->Media||!io->ReadBlocks||!n||at>c->bytes||(UINT64)n>c->bytes-at||AllReads>=512||BytesRead>16*1024*1024) return -1;
-  UINT32 bs=io->Media->BlockSize,id=io->Media->MediaId;
-  if(bs<512||bs>4096||(bs&(bs-1))||!io->Media->MediaPresent) return -1;
-  UINTN align=io->Media->IoAlign;if(align<2) align=1;
-  if(align>1024*1024||(align&(align-1))) return -1;
-  UINT64 absolute=c->base+at,start=absolute/bs*bs;
-  UINTN skip=(UINTN)(absolute-start);
-  if(n>131072||n+skip>131072+4096) return -1;
-  UINTN len=((UINTN)n+skip+bs-1)/bs*bs;
-  if(len>16*1024*1024-BytesRead) return -1;
-  VOID *allocation=NULL;EFI_STATUS st=ST->BootServices->AllocatePool(EfiBootServicesData,len+align-1,&allocation);
-  if(EFI_ERROR(st)||!allocation) return -1;
-  VOID *buffer=(VOID *)(((UINTN)allocation+align-1)&~(align-1));
-  begin("READ h=");number(c->id,10);kv(" byte=0x",absolute,16);kv(" len=",n,10);emit();
-  AllReads++;BytesRead+=len;
-  st=io->ReadBlocks(io,id,start/bs,len,buffer);LastStatus=st;
-  begin("status=0x");number((UINT64)st,16);kv(" aligned_len=",len,10);emit();
-  if(!EFI_ERROR(st)&&io->Media->MediaId==id&&io->Media->BlockSize==bs) ByteCopy(dest,(UINT8 *)buffer+skip,n);
-  else {ReadFailures++;st=EFI_DEVICE_ERROR;}
-  ST->BootServices->FreePool(allocation);return EFI_ERROR(st)?-1:0;
-}
 static VOID show_path(EFI_HANDLE h) {
   EFI_DEVICE_PATH_PROTOCOL *dp=NULL;
   if(EFI_ERROR(ST->BootServices->HandleProtocol(h,&PathGuid,(VOID **)&dp))||!dp) {record("path unavailable");return;}
@@ -114,10 +98,14 @@ static VOID show_path(EFI_HANDLE h) {
   }
 }
 static VOID summary(void) {
-  clear();output("LMIPRO UEFI STORAGE RO v2");output("ReadBlocks + driver inventory / no disk writes");
+  clear();output("LMIPRO UEFI LOADER PROBE v3");output("Load/unload only; UFS entry NOT executed");
   begin("DEPEX SMEM=");number(SmemPresent,10);kv(" SPMI=",SpmiPresent,10);output(Text);
   begin("UFS image=");number(UfsLoaded,10);kv(" bindings=",UfsBindings,10);output(Text);
   begin("All images=");number(LoadedCount,10);kv(" bindings=",BindingCount,10);output(Text);
+  begin("FV count=");number(FvCount,10);kv(" UFS copies=",FvMatches,10);kv(" hash=",UfsHashMatch,10);output(Text);
+  begin("FV read status=0x");number(FvReadStatus,16);output(Text);
+  begin("Load attempted=");number(LoadAttempted,10);kv(" status=0x",LoadStatus,16);output(Text);
+  begin("Unload attempted=");number(UnloadAttempted,10);kv(" status=0x",UnloadStatus,16);output(Text);
   begin("Disks=");number(PhysicalDisks,10);kv(" partitions=",Partitions,10);output(Text);
   begin("Targets=");number(Targets,10);kv(" matched=",Passed,10);output(Text);
   begin("Reads=");number(AllReads,10);kv(" failures=",ReadFailures,10);output(Text);
@@ -129,11 +117,74 @@ static VOID summary(void) {
     begin("OS NX=");number(Last.os_nx,10);kv(" root sample=",Last.root_sample,10);output(Text);
     begin("SystemOS NX=");number(Last.system_nx,10);kv(" volume=",Last.system_volume,10);output(Text);
   }
-  if(Targets==1&&Passed==1) output("RESULT: METADATA SAMPLES MATCH");
-  else if(!Targets) output("RESULT: NO MATCHING USERDATA GPT");
-  else if(Targets>1) output("RESULT: AMBIGUOUS TARGETS");
-  else {output("RESULT: METADATA CHECK FAILED");output(Last.failed);}
+  if(LoadAttempted) output(EFI_ERROR(LoadStatus)?"RESULT: UFSDxe LOAD REJECTED":"RESULT: UFSDxe LOAD OK; NOT STARTED");
+  else if(!UfsHashMatch) output("RESULT: UFS FV IDENTITY NOT CONFIRMED");
+  else output("RESULT: LOADER TEST SKIPPED; SEE LOG");
   output("Not a full image hash or root mount.");output("N/P: log pages  S: summary  Esc: menu");output("No automatic reboot. Keep this screen.");
+}
+/* Build exactly one FV-file path from a bounded, single-instance FV path. */
+static EFI_DEVICE_PATH_PROTOCOL *ufs_path(EFI_HANDLE h) {
+  EFI_DEVICE_PATH_PROTOCOL *dp=NULL;
+  if(EFI_ERROR(ST->BootServices->HandleProtocol(h,&PathGuid,(VOID **)&dp))||!dp) return NULL;
+  UINTN pos=0;BOOLEAN ended=FALSE;
+  while(pos+4<=4000) {
+    UINT8 *n=(UINT8 *)dp+pos;UINTN len=(UINTN)n[2]+((UINTN)n[3]<<8);
+    if(len<4||len>4000-pos) return NULL;
+    if(n[0]==END_DEVICE_PATH_TYPE) {
+      if(n[1]!=END_ENTIRE_DEVICE_PATH_SUBTYPE||len!=4) return NULL;
+      ended=TRUE;break;
+    }
+    if(n[0]==MEDIA_DEVICE_PATH&&n[1]==MEDIA_PIWG_FW_FILE_DP) return NULL;
+    pos+=len;
+  }
+  if(!ended) return NULL;
+  UINTN size=pos+sizeof(MEDIA_FW_VOL_FILEPATH_DEVICE_PATH)+4;
+  VOID *buf=NULL;if(EFI_ERROR(ST->BootServices->AllocatePool(EfiBootServicesData,size,&buf))||!buf) return NULL;
+  ByteCopy(buf,dp,pos);UINT8 *n=(UINT8 *)buf+pos;
+  n[0]=MEDIA_DEVICE_PATH;n[1]=MEDIA_PIWG_FW_FILE_DP;n[2]=(UINT8)sizeof(MEDIA_FW_VOL_FILEPATH_DEVICE_PATH);n[3]=0;
+  ByteCopy(n+4,&UfsGuid,16);n+=sizeof(MEDIA_FW_VOL_FILEPATH_DEVICE_PATH);
+  n[0]=END_DEVICE_PATH_TYPE;n[1]=END_ENTIRE_DEVICE_PATH_SUBTYPE;n[2]=4;n[3]=0;
+  return buf;
+}
+static VOID probe_loader(void) {
+  static const UINT8 expected[32]={0xff,0xea,0xed,0x46,0x7f,0x82,0x51,0xb7,0xe3,0x0a,0x45,0x07,0x5d,0xa8,0x4a,0x1c,0x56,0x3e,0x2b,0xac,0x7d,0xc4,0xbe,0x0f,0x79,0xf0,0xed,0x49,0xa8,0x8b,0x8d,0xc9};
+  EFI_HANDLE *hs=NULL,target=NULL;UINTN n=0;
+  EFI_STATUS st=ST->BootServices->LocateHandleBuffer(ByProtocol,&FvGuid,NULL,&n,&hs);
+  begin("FV enumeration status=0x");number(st,16);kv(" count=",n,10);emit();
+  if(EFI_ERROR(st)) return;FvCount=n;
+  for(UINTN i=0;i<n&&i<32;i++) {
+    EFI_FIRMWARE_VOLUME2_PROTOCOL *fv=NULL;
+    if(EFI_ERROR(ST->BootServices->HandleProtocol(hs[i],&FvGuid,(VOID **)&fv))||!fv||!fv->ReadSection) continue;
+    VOID *pe=NULL;UINTN size=0;UINT32 auth=0;
+    st=fv->ReadSection(fv,&UfsGuid,EFI_SECTION_PE32,0,&pe,&size,&auth);
+    begin("FV ");number(i,10);kv(" UFS ReadSection=0x",st,16);kv(" bytes=",size,10);kv(" auth=0x",auth,16);emit();
+    if(!EFI_ERROR(st)&&pe) {
+      FvMatches++;FvReadStatus=st;
+      if(size==118784) {
+        UINT8 digest[32];ro_sha256(pe,size,digest);BOOLEAN same=TRUE;
+        for(UINTN j=0;j<32;j++) if(digest[j]!=expected[j]) same=FALSE;
+        begin("UFSDxe exact extracted PE hash match=");number(same,10);emit();
+        if(same) {UfsHashMatch++;target=hs[i];}
+      }
+    } else if(st!=EFI_NOT_FOUND) FvReadStatus=st;
+    if(pe) ST->BootServices->FreePool(pe);
+  }
+  if(hs) ST->BootServices->FreePool(hs);
+  if(FvMatches!=1||UfsHashMatch!=1||!target||UfsLoaded||UfsBindings) {record("Load skipped: ambiguous/missing identity or UFS already loaded");return;}
+  EFI_DEVICE_PATH_PROTOCOL *path=ufs_path(target);
+  if(!path) {record("Load skipped: FV device path unavailable/malformed");return;}
+  EFI_HANDLE image=NULL;
+  record("PROBE: normal LoadImage only; no StartImage, Dispatch or ConnectController");
+  LoadAttempted=1;LoadStatus=ST->BootServices->LoadImage(FALSE,ThisImage,path,NULL,0,&image);
+  begin("LoadImage return=0x");number(LoadStatus,16);kv(" handle=0x",(UINTN)image,16);emit();
+  if(image) {
+    /* In pinned CoreUnloadImage, a never-started image is freed without invoking
+       a vendor unload entry. Never call StartImage to satisfy unload semantics. */
+    UnloadAttempted=1;UnloadStatus=ST->BootServices->UnloadImage(image);
+    begin("UnloadImage return=0x");number(UnloadStatus,16);emit();
+  }
+  ST->BootServices->FreePool(path);
+  record("Probe complete. UFSDxe entry and disk methods were not invoked.");
 }
 static VOID logpage(UINTN page) {
   clear();begin("READ-ONLY LOG PAGE ");number(page+1,10);output(Text);
@@ -209,12 +260,13 @@ static VOID inventory(void) {
   record("LoadedImage presence does not prove successful StartImage.");
 }
 EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
-  (void)image;ST=table;if(!ST||!ST->BootServices) return EFI_INVALID_PARAMETER;
+  ThisImage=image;ST=table;if(!ST||!ST->BootServices) return EFI_INVALID_PARAMETER;
   ST->BootServices->SetWatchdogTimer(0,0,0,NULL);setup_console();
-  record("LMIPRO UEFI STORAGE RO v2");
+  record("LMIPRO UEFI LOADER PROBE v3");
   record("No WriteBlocks, controller reset or direct MMIO.");
   ST->BootServices->LocateProtocol(&TextGuid,NULL,(VOID **)&PathText);
   inventory();
+  probe_loader();
   EFI_HANDLE *handles=NULL;UINTN count=0;
   EFI_STATUS st=ST->BootServices->LocateHandleBuffer(ByProtocol,&BlockGuid,NULL,&count,&handles);LastStatus=st;
   if(!EFI_ERROR(st)) for(UINTN i=0;i<count&&i<128;i++) {
@@ -224,14 +276,7 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
     begin("HANDLE ");number(i,10);kv(" bs=",m->BlockSize,10);kv(" last=0x",m->LastBlock,16);emit();
     begin("present=");number(m->MediaPresent,10);kv(" partition=",m->LogicalPartition,10);kv(" ioalign=",m->IoAlign,10);kv(" readonly=",m->ReadOnly,10);emit();show_path(handles[i]);
     if(m->LogicalPartition) {Partitions++;continue;}PhysicalDisks++;
-    if(!m->MediaPresent||m->BlockSize<512||m->BlockSize>4096||(m->BlockSize&(m->BlockSize-1))||m->LastBlock==UINT64_MAX||m->LastBlock+1>UINT64_MAX/m->BlockSize) continue;
-    UINT64 bytes=(m->LastBlock+1)*m->BlockSize;
-    if(bytes<9382658048ULL) {record("Skip small medium (includes payload RAM disk)");continue;}
-    IO_CTX context={io,0,bytes,i};RO_DISK disk={read_bytes,&context,bytes};RO_PART part={0,0};
-    if(!ro_gpt(&disk,m->BlockSize,0,&part,record)) continue;
-    Targets++;memset(&Last,0,sizeof(Last));Last.userdata_offset=part.offset;Last.userdata_bytes=part.bytes;
-    context.base=part.offset;context.bytes=part.bytes;disk.bytes=part.bytes;
-    if(ro_verify_userdata(&disk,&Last,record)) Passed++;
+    record("V3: physical medium enumeration only; ReadBlocks disabled");
   }
   if(handles) ST->BootServices->FreePool(handles);
   summary();UINTN page=0;

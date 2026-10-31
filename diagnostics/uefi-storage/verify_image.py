@@ -81,7 +81,7 @@ def verify(folder,source=None):
     return dict(boot_sha256=sha(b),boot_bytes=len(b),header_version=version,ramdisk_bytes=rs,second_bytes=ss,
         shim_sha256=sha(shim),shim_bytes=len(shim),fd_sha256=sha(fd),fd_bytes=len(fd),dtb_sha256=sha(dtb),
         payload_bytes=n,payload_sha256=sha(payload),efi=pe(app),configuration=config,
-        scope='UEFI read-only metadata diagnostic; no XNU or OS image; sampled metadata only',hardware_test='not yet tested')
+        scope='UEFI FV identity plus LoadImage/UnloadImage only; no StartImage, disk methods, XNU or OS',hardware_test='not yet tested')
 if __name__=='__main__':
     a=argparse.ArgumentParser();a.add_argument('folder');a.add_argument('--source');args=a.parse_args()
     v=verify(args.folder,args.source);Path(args.folder,'verification.json').write_text(json.dumps(v,indent=2)+'\n')

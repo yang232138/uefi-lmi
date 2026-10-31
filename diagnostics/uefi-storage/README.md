@@ -1,22 +1,16 @@
-# lmipro UEFI standard read-only metadata diagnostic
+# lmipro UEFI UFSDxe loader probe v3
 
-This image uses the exact qualified 3 MiB FD and 368-byte BootShim, with a new FAT payload containing one documented `type="efi"` application entry. No XNU, system filesystem or old native UFS observer is included. The existing firmware initialization remains unchanged. The application has no MMIO or disk-write path, but firmware drivers necessarily implement ReadBlocks internally.
+The exact previously tested FD, BootShim and firmware DTB remain pinned. No XNU is included. V2 hardware video established SMEM=1, SPMI=1, no UFS LoadedImage/DriverBinding and no physical BlockIo.
 
-The diagnostic enumerates BlockIo handles and device paths, records media geometry/alignment, and reads only whole physical media large enough to hold the supplied userdata image. It validates the outer GPT header and entry CRCs, requires exactly one userdata entry, checks the SHNGROOT manifest hash and windows, parses the nested OS GPT, and compares six SHA256 metadata samples including APFS container/volume checksums and the known System volume UUID. The System volume block address is pinned to the audited image; this is not a general APFS object-map parser.
+This version enumerates current FV2 handles and reads the PE32 section of file 0d35cd8e-97ea-4f9a-96af-0f0d89f76567 through FV2.ReadSection. A probe proceeds only if exactly one copy exists, exactly matches the 118784-byte PE extracted from the tested FD (SHA256 ffeaed467f8251b7e30a45075da84a1c563e2bac7dc4be0f79f0ed49a88b8dc9), and UFS is not already loaded/bound. The app constructs a bounded single-instance FV-file device path and calls normal BootServices.LoadImage with SourceBuffer=NULL, retaining the normal firmware authentication path. It records the returned status and unloads any returned image. It never calls StartImage, Dispatch, ConnectController, vendor protocol methods, any BlockIo disk method, controller reset, SetVariable or direct MMIO.
 
-Expected root UUID: `04769D26-2CA0-4825-B443-E2E5F88300F2`. The historical full input hash in expected-metadata.json was not recomputed for this build. Only 37376 bytes of the explicitly supplied userdata file were sampled to generate the fixture. A passing result confirms these sampled bytes only, not the full disk, APFS authentication, root mounting, XNU DMA access or a working OS.
+The pinned CoreLoadImage implementation only loads/relocates/registers the image; the driver entry is called by CoreStartImage. CoreUnloadImage frees a never-started image without calling a vendor unload function. Thus this probe does not execute the vendor UFS initialization. A loading failure does not by itself identify the original dispatcher failure; success does not prove the UFS entry or disk initialization succeeds. Observe the distinction on the result page.
 
-The application caps reads at 512 and 16 MiB, and checks byte bounds, media block size, IoAlign, MediaId stability, GPT/APFS checksums and exact sample hashes. A firmware ReadBlocks call can itself hang; there is no claim that this diagnostic imposes a controller timeout. No controller reset, raw SCSI requests, partition writes, formatting, SetVariable or ExitBootServices are issued by the app.
+Temporary fastboot boot only. Menu: UEFI UFS loader check. Page: LMIPRO UEFI LOADER PROBE v3. Capture FV count/UFS copies/hash, FV read status, Load attempted/status, Unload attempted/status. N/P show retained logs. No timed reboot. A crash/hang during loading is also a result; no repeated automatic retry.
 
-On hardware: temporary `fastboot boot boot.img` only. The default menu entry is **UEFI storage read-only**. Wait for **LMIPRO UEFI STORAGE RO v2** and photograph the summary. N/P navigate retained log pages, S returns to summary, Esc returns to the menu. There is no timed reboot.
-
-`RESULT: METADATA SAMPLES MATCH` is the success criterion. `NO MATCHING USERDATA GPT` means the qualified firmware did not expose a matching usable whole disk, or its GPT could not be read/validated; inspect the log instead of assuming XPU or disk corruption. `METADATA CHECK FAILED` identifies a failed step. No target or mismatch is not an instruction to reflash userdata.
+Tests: existing 52 portable metadata-parser tests remain offline checks, plus 10 tests of the real C FV path builder using fake Boot Services, including valid GUID/path output, malformed length/end, existing FV-file node, missing handle/path and traversal cap. No firmware or device is used by host tests.
 
 Source references:
-- [Pinned official UEFI firmware guide](https://github.com/yang232138/UniXNU/blob/ee472385743ebd16941ab14892dcb9d02e219d15/docs/zh/porting/uefi-firmware.md)
-- [Pinned official boot configuration and EFI entries](https://github.com/yang232138/UniXNU/blob/ee472385743ebd16941ab14892dcb9d02e219d15/docs/zh/reference/boot-configuration.md)
-- [Pinned Mu BlockIo protocol](https://github.com/microsoft/mu_basecore/blob/cfb93724a06ff86ff5ba971413368a7809ee42a5/MdePkg/Include/Protocol/BlockIo.h)
-
-V2 adds read-only protocol presence (SMEM/SPMI and supporting protocols), LoadedImage FV file GUIDs and DriverBinding correlation. No driver methods, ConnectController, Dispatch, forced LoadImage, reset or MMIO are invoked. UFSDxe's exact tested-FD DEPEX is SMEM AND SPMI. LoadedImage presence alone does not prove StartImage success; absence can also mean an unloaded failed driver. Names in FirmwareNames.h are extracted from the exact frozen FD, not guessed from overlay source. The full inventory is retained in N/P log pages.
-
-V1 hardware evidence: only RAM payload VenHw(A9C6827C-1BD8-410C-885A-C46500F7D836), bs=512 last=0x1ffff, LogicalPartition=1 ReadOnly=1; zero physical disks and zero reads. Userdata remains untested.
+- https://github.com/microsoft/mu_basecore/blob/cfb93724a06ff86ff5ba971413368a7809ee42a5/MdeModulePkg/Core/Dxe/Image/Image.c
+- https://github.com/microsoft/mu_basecore/blob/cfb93724a06ff86ff5ba971413368a7809ee42a5/MdePkg/Include/Protocol/FirmwareVolume2.h
+- https://github.com/yang232138/UniXNU/blob/ee472385743ebd16941ab14892dcb9d02e219d15/docs/zh/reference/boot-configuration.md

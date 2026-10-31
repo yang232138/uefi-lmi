@@ -14,7 +14,7 @@ console = "auto"
 
 [[entry]]
 id = "storage-ro"
-title = "UEFI storage read-only"
+title = "UEFI UFS loader check"
 type = "efi"
 path = "Payloads/UefiStorage.efi"
 enabled = true
