@@ -279,7 +279,10 @@ jobs:
       - name: Build the payload
         env:
           UNIXNU_UNIQUE_CHIP_ID: ${{ inputs.unique_chip_id }}
+          # Without this a traceback can be lost and the step shows only "exit 1".
+          PYTHONUNBUFFERED: "1"
         run: |
+          set -x
           cd unixnu
           # panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.
           seed=$(find ../data-seed -name 'owner-data-32.cdr' 2>/dev/null | head -1)
