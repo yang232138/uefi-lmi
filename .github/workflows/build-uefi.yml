@@ -249,12 +249,15 @@ jobs:
           # Extract the two modules the payload trust cache carries. The board has
           # no [ipsw] fetch list, so name them explicitly.
           ./unixnu ipsw fetch -D ../lmipro StaticTrustCache "Cryptex1,SystemTrustCache"
-          find out -type f | grep -i trust || true
-          static=$(find out -type f | grep -i 'static.*trust' | head -1)
-          system=$(find out -type f | grep -i 'system.*trust' | head -1)
+          # The extracted files are named after the IPSW members (044-...dmg.trustcache),
+          # so pair them by the component recorded in the sidecar JSON.
+          static=$(grep -l '"component": "StaticTrustCache"' out/ipsw/*/*.json | head -1)
+          system=$(grep -l '"component": "Cryptex1,SystemTrustCache"' out/ipsw/*/*.json | head -1)
+          static=${static%.json}
+          system=${system%.json}
           echo "static: $static"
           echo "system: $system"
-          test -n "$static" && test -n "$system"
+          test -f "$static" && test -f "$system"
           python3 overlay/scripts/build-trust-bundle.py \
             --static "$static" \
             --system "$system" \
