@@ -155,8 +155,9 @@ jobs:
 
   payload:
     # The XNU kernel step drives Xcode, so it runs on Apple's runner; the firmware
-    # volume comes from the job above instead of being rebuilt here.
-    needs: firmware
+    # volume comes from the job above instead of being rebuilt here. The userdata
+    # job supplies the 32 MiB Data seed the payload carries.
+    needs: [firmware, userdata]
     runs-on: macos-26
     timeout-minutes: 360
     env:
@@ -198,6 +199,12 @@ jobs:
         with:
           name: lmi-uefi
           path: artifact
+
+      - name: Download the Data seed
+        uses: actions/download-artifact@v4
+        with:
+          name: lmi-data-seed
+          path: data-seed
 
       - name: Fetch Mu-Silicium for the boot image tools
         run: |
@@ -271,10 +278,13 @@ jobs:
         run: |
           cd unixnu
           # panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.
+          seed=$(find ../data-seed -name 'owner-data-32.cdr' | head -1)
+          test -n "$seed" || { echo 'the Data seed artifact is missing'; exit 1; }
           ./unixnu build payload -D ../lmipro \
             --unique-chip-id "$UNIXNU_UNIQUE_CHIP_ID" \
             --uefi ../uefi \
-            --trust-cache trust.bundle
+            --trust-cache trust.bundle \
+            --data-ramdisk "$seed"
 
       - name: Pack the boot image with the payload in the kernel
         # lmi's boot loader ignores the boot image's own ramdisk (like the 3a in
