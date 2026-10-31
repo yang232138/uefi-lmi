@@ -243,6 +243,23 @@ jobs:
           cd unixnu
           ./unixnu build kernel -D ../lmipro
 
+      - name: Build the trust cache bundle
+        run: |
+          cd unixnu
+          # The OS profile fetches both modules; assemble the bundle DarwinBoot
+          # validates and that [payload] trust_cache_sha256 pins.
+          static=$(find out -type f | grep -i 'static.*trust' | head -1)
+          system=$(find out -type f | grep -i 'system.*trust' | head -1)
+          echo "static: $static"
+          echo "system: $system"
+          test -n "$static" && test -n "$system"
+          python3 overlay/scripts/build-trust-bundle.py \
+            --static "$static" \
+            --system "$system" \
+            --output trust.bundle \
+            --report trust.json
+          cat trust.json
+
       - name: Build the payload
         env:
           UNIXNU_UNIQUE_CHIP_ID: ${{ inputs.unique_chip_id }}
@@ -251,7 +268,8 @@ jobs:
           # panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.
           ./unixnu build payload -D ../lmipro \
             --unique-chip-id "$UNIXNU_UNIQUE_CHIP_ID" \
-            --uefi ../uefi
+            --uefi ../uefi \
+            --trust-cache trust.bundle
 
       - name: Pack the boot image with the payload in the kernel
         # lmi's boot loader ignores the boot image's own ramdisk (like the 3a in
