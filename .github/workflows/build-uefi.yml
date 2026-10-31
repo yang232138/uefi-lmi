@@ -363,6 +363,35 @@ jobs:
           ls -lh out/lmipro/*/*/userdata/ || true
           cat out/lmipro/*/*/userdata/userdata-root.json || true
 
+      - name: Build the Data seed
+        run: |
+          cd unixnu
+          img=$(find out -name 'userdata-root.img' | head -1)
+          test -n "$img"
+          ls -lh "$img"
+          # Mount only the OS window: the first window starts after the 1 MiB
+          # manifest, and prepare-owner-data-fixture.py reads it from here.
+          mountpoint="$(pwd)/out/os-mount"
+          mkdir -p "$mountpoint"
+          hdiutil attach -readonly -nobrowse -noverify \
+            -imagekey diskimage-class=CRawDiskImage \
+            -offset 1048576 \
+            -mountpoint "$mountpoint" "$img"
+          mkdir -p .cache/firmware/target-volumes
+          ln -sfn "$mountpoint" .cache/firmware/target-volumes/os-mount
+          python3 scripts/prepare-owner-data-fixture.py --output build/data-seed
+          hdiutil detach "$mountpoint" || true
+          ls -lh build/data-seed
+
+      - name: Upload the Data seed
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmi-data-seed
+          path: unixnu/build/data-seed/
+          if-no-files-found: warn
+          retention-days: 3
+
       - name: Free the IPSW cache
         if: always()
         run: rm -rf unixnu/out/ipsw || true
