@@ -235,10 +235,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: unixnu/out/lmipro/*/lmipro/kernel
-          # Keyed on the upstreams only: kernel_args and panic_screen live in
-          # board.toml and change the payload, not the kernel, so a tweak there
-          # must not force a rebuild.
-          key: lmi-kernel-${{ inputs.unixnu_ref }}-${{ inputs.device_ref }}-${{ inputs.unique_chip_id }}
+          # Keyed on the upstreams AND everything that changes the kernel build:
+          # the defconfig, the board patches, the archive scripts and the package
+          # sources. kernel_args/panic_screen only change the payload, so they are
+          # deliberately not part of the key.
+          key: lmi-kernel-${{ inputs.unixnu_ref }}-${{ inputs.device_ref }}-${{ inputs.unique_chip_id }}-${{ hashFiles('lmipro/configs/**', 'lmipro/patches/**', 'lmipro/package/**', 'lmipro/scripts/**', 'lmipro/dts/**') }}
 
       - name: Build the kernel
         if: steps.kernel-cache.outputs.cache-hit != 'true'
