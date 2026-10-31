@@ -1,0 +1,20 @@
+version = 1
+
+[boot]
+timeout = 3
+fallback_timeout = 3
+connect_all = false
+default = "storage-ro"
+
+[ui]
+title = "UniXNU"
+logo = true
+layout = "portrait"
+console = "auto"
+
+[[entry]]
+id = "storage-ro"
+title = "UEFI storage read-only"
+type = "efi"
+path = "Payloads/UefiStorage.efi"
+enabled = true

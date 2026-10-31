@@ -1,0 +1,55 @@
+{
+  "source_path": "D:\\_C盘搬迁_20261006\\userdata-root.img\\userdata-root.img",
+  "source_size": 9382658048,
+  "source_mtime_ns": 1793364260000000000,
+  "historical_full_image_sha256": "fd43ee7035ce185ce4215ac93fdc006fd784a54b3b7442e21457c226cbe03093",
+  "full_file_rehashed_this_step": false,
+  "source_open_mode": "rb",
+  "source_written": false,
+  "root_uuid": "04769D26-2CA0-4825-B443-E2E5F88300F2",
+  "samples": [
+    {
+      "name": "Manifest",
+      "offset": 0,
+      "bytes": 4096,
+      "kind": 0,
+      "sha256": "bc908a6cf66491055077798550660f40128bfe6dce2fdc0db56e6af96511208d"
+    },
+    {
+      "name": "OS GPT header",
+      "offset": 1049088,
+      "bytes": 512,
+      "kind": 0,
+      "sha256": "df6cc0165afc02843d070b7e21d64e532a356972661b1037a1a64afc9e004880"
+    },
+    {
+      "name": "OS NX",
+      "offset": 1065984,
+      "bytes": 4096,
+      "kind": 1,
+      "sha256": "e977165f7b0a6d8485297ca4e235105e507dff6f435b8ba66e044cac74e63d03"
+    },
+    {
+      "name": "Root System volume",
+      "offset": 66176000,
+      "bytes": 4096,
+      "kind": 2,
+      "sha256": "efcf02dcb69032a1118fc8aac80e4e85d46ee95076655d8eb0985ff4afc34dc5"
+    },
+    {
+      "name": "SystemOS NX",
+      "offset": 6079643648,
+      "bytes": 4096,
+      "kind": 1,
+      "sha256": "557802857a9dbf401af64d4ea28f83b16a556a75642c1644aded536657757726"
+    },
+    {
+      "name": "SystemOS volume",
+      "offset": 9285423104,
+      "bytes": 4096,
+      "kind": 2,
+      "sha256": "fc9fc4523f4411548d15d739b87500cf976512be16bcfca299a1e5c21c184a12"
+    }
+  ],
+  "qualification": "Exact sampled blocks only; not a whole handset image or root authentication verification"
+}

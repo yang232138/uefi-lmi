@@ -1,0 +1,66 @@
+name: lmipro UEFI standard read-only metadata
+on:
+  push:
+    branches: [lmi-uefi-storage-ro-20261101]
+    paths: [diagnostics/uefi-storage/**, .github/workflows/uefi-storage-ro.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  read-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: overlay
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install build tools
+        run: sudo apt-get update -qq && sudo apt-get install -y clang lld llvm mtools gcc
+      - name: Fetch pinned headers and packaging tools
+        run: |
+          mkdir basecore uefi
+          git -C basecore init -q
+          git -C basecore remote add origin https://github.com/microsoft/mu_basecore.git
+          git -C basecore sparse-checkout init --cone
+          git -C basecore sparse-checkout set MdePkg/Include
+          git -C basecore fetch -q --depth 1 --filter=blob:none origin cfb93724a06ff86ff5ba971413368a7809ee42a5
+          git -C basecore checkout -q FETCH_HEAD
+          git -C uefi init -q
+          git -C uefi remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
+          git -C uefi sparse-checkout init --cone
+          git -C uefi sparse-checkout set BootShim Resources
+          git -C uefi fetch -q --depth 1 --filter=blob:none origin e51cd877e31c8fbb322032dc4cb6715e83d25ad3
+          git -C uefi checkout -q FETCH_HEAD
+          cp -a overlay/BootShim/. uefi/BootShim/
+          cp -a overlay/Resources/. uefi/Resources/
+          clang --version
+          lld-link --version
+      - name: Test reader, compile EFI application and verify packed boot image
+        run: python3 overlay/diagnostics/uefi-storage/build_storage.py 2>&1 | tee build-storage.log
+      - name: Upload checked image and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmipro-uefi-storage-ro
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            artifact/boot.img
+            artifact/boot.json
+            artifact/SILICIUM_UEFI.fd
+            artifact/UefiStorage.efi
+            artifact/verification.json
+            artifact/SHA256SUMS
+            artifact/expected-metadata.json
+            artifact/core-test-results.json
+            artifact/unixnu.toml
+            artifact/porting.toml
+            artifact/README.md
+            artifact/verify_image.py
+            artifact/source-sha256.json
+            build-storage.log
