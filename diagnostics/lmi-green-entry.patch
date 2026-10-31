@@ -1,6 +1,6 @@
 --- a/board.toml
 +++ b/board.toml
-@@ -81,10 +81,9 @@
+@@ -81,10 +81,12 @@
  loader = "firmware"
  title = "Redmi K30 Pro"
  kernel_args = ["-v", "serial=3", "boot-progress=2"]
@@ -8,9 +8,12 @@
 -# few seconds into the kernel, which would hide any later stage.
 -# panic_screen is off: its entry-probe patch stalls the kernel before the MMU
 -# is enabled, which hides the very failures it is meant to show.
-+# Official standalone entry probes: colors and six-second post-MMU reset.
-+# The optional panic renderer exceeds this kernel's padding by 79 bytes.
++# Official stage4 checkpoint: second PE_init_platform return in arm_init.
++# VM, serial and console creation precede this actual audited call.
 +entry_probe_reset_delay = 6
++entry_probe_reset_after = "_PE_init_platform"
++entry_probe_reset_in = "_arm_init"
++entry_probe_reset_occurrence = 2
  panic_screen = false
  
  [payload.adt]

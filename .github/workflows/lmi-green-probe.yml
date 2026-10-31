@@ -1,4 +1,4 @@
-name: lmi documented green-handoff diagnostic
+name: lmi platform and console checkpoint
 'on':
   push:
     branches:
@@ -132,6 +132,20 @@ jobs:
 
         PY
 
+        python3 - <<''PY''
+
+        from pathlib import Path
+
+        import tomllib
+
+        p=tomllib.loads(Path(''lmipro/board.toml'').read_text())[''payload'']
+
+        assert p[''entry_probe_reset_after'']==''_PE_init_platform''
+
+        assert p[''entry_probe_reset_in'']==''_arm_init'' and p[''entry_probe_reset_occurrence'']==2
+
+        PY
+
         '
     - name: Resolve the device configuration
       run: 'cd unixnu
@@ -202,8 +216,26 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-documented-entry-probe
-        path: 'output/
+        name: lmi-platform-console-checkpoint
+        path: 'output/boot.img
+
+          output/boot.json
+
+          output/payload.json
+
+          output/verification.json
+
+          output/test-board.toml
+
+          output/kernel.config
+
+          output/SILICIUM_UEFI.fd
+
+          output/firmware.dtb
+
+          output/payload-patch.log
+
+          output/SHA256SUMS
 
           unixnu/out/**/logs/*.log
 
