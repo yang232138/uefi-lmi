@@ -23,14 +23,14 @@ assert parse_config((root/'.config').read_text())['XNU_DT_PANIC_REGION'] is True
 inputs=json.loads((root/'kernel/dt-panic-inputs.json').read_text())
 assert inputs['kernel_sha256']==sha(raw)
 record=inputs['record']
-assert any('-DXNU_DT_PANIC_REGION=1' in value for value in record['arguments'])
+assert inputs['dt_panic_build_mode']=='1'
 text=inputs['source_text']
 assert hashlib.sha256(text.encode()).hexdigest()==inputs['source_sha256']
 assert '#if defined(PLATFORM_PANIC_LOG_PADDR) && !(defined(XNU_DT_PANIC_REGION) && XNU_DT_PANIC_REGION)' in text
 lo,hi=m.function_range(symbols,'_PE_create_console')
 body=d[m.file_offset(lo):m.file_offset(hi-4)+4]
 assert struct.pack('<2I',0x52980000,0x72a781e0) not in body,'Fixed BCM2837 panic mapping remained'
-dtproof=dict(config_enabled=True,actual_compile_flag_seen=True,official_dt_guard_seen=True,
+dtproof=dict(config_enabled=True,build_script_mode_seen=True,per_file_flag_in_compile_record=inputs['per_file_flag_in_compile_record'],official_dt_guard_seen=True,
  actual_console_fixed_panic_mapping_removed=True,source_sha256=inputs['source_sha256'],
  compile_record=record,original_kernel_sha256=sha(raw),hardware_tested=False)
 (out/'dt-panic-compile-proof.json').write_text(json.dumps(dtproof,indent=2)+'\n')

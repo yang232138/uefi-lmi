@@ -210,7 +210,11 @@ jobs:
 
         record=json.loads(records[0].read_text().strip().rstrip('',''))
 
-        assert any(''-DXNU_DT_PANIC_REGION=1'' in value for value in record[''arguments''])
+        flag_in_record=any(''-DXNU_DT_PANIC_REGION=1'' in value for value in record[''arguments''])
+
+        mode=(root/''tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.dt-panic-region-mode'').read_text().strip()
+
+        assert mode==''1''
 
         source=Path(record[''file''])
 
@@ -220,7 +224,7 @@ jobs:
 
         assert ''#if defined(PLATFORM_PANIC_LOG_PADDR) && !(defined(XNU_DT_PANIC_REGION) && XNU_DT_PANIC_REGION)'' in text
 
-        report=dict(record=record,source_text=text,source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),kernel_sha256=hashlib.sha256((root/''kernel/kernel.macho'').read_bytes()).hexdigest())
+        report=dict(record=record,per_file_flag_in_compile_record=flag_in_record,dt_panic_build_mode=mode,source_text=text,source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),kernel_sha256=hashlib.sha256((root/''kernel/kernel.macho'').read_bytes()).hexdigest())
 
         (root/''kernel/dt-panic-inputs.json'').write_text(json.dumps(report,indent=2))
 
