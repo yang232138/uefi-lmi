@@ -93,8 +93,10 @@ def main():
     system = im4p_payload(cryptex)
 
     if not module_ok(static):
+        print(f'static head: {static[:32].hex()}')
         raise SystemExit(f'static trust module is not version 2: {len(static)} bytes')
     if not module_ok(system):
+        print(f'system head: {system[:32].hex()}')
         raise SystemExit(f'system trust module is not version 2: {len(system)} bytes')
 
     static_count = struct.unpack_from('<I', static, 4)[0]
