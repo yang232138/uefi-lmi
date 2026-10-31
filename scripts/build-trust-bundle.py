@@ -63,10 +63,15 @@ def im4p_payload(blob):
 
 
 def module_ok(module):
-    """A version-2 trust module: u32 version, u32 count, then 24-byte entries."""
+    """A version-2 trust module.
+
+    XNU's trust_cache_module2 is: u32 version, 16-byte uuid, u32 num_entries,
+    then 24-byte entries. The count is at offset 20, not 4.
+    """
     if len(module) < 24:
         return False
-    version, count = struct.unpack_from('<II', module, 0)
+    version, = struct.unpack_from('<I', module, 0)
+    count, = struct.unpack_from('<I', module, 20)
     return version == 2 and len(module) == 24 + count * 24
 
 
@@ -99,8 +104,8 @@ def main():
         print(f'system head: {system[:32].hex()}')
         raise SystemExit(f'system trust module is not version 2: {len(system)} bytes')
 
-    static_count = struct.unpack_from('<I', static, 4)[0]
-    system_count = struct.unpack_from('<I', system, 4)[0]
+    static_count = struct.unpack_from('<I', static, 20)[0]
+    system_count = struct.unpack_from('<I', system, 20)[0]
 
     bundle = struct.pack('<3I', 2, 12, 12 + len(static)) + static + system
     args.output.parent.mkdir(parents=True, exist_ok=True)
