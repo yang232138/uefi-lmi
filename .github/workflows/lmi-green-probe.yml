@@ -128,7 +128,7 @@ jobs:
 
         b=tomllib.loads(Path(''lmipro/board.toml'').read_text())
 
-        assert b[''payload''][''panic_screen''] and b[''payload''][''entry_probe_reset_delay'']==6
+        assert not b[''payload''][''panic_screen''] and b[''payload''][''entry_probe_reset_delay'']==6
 
         PY
 
@@ -156,7 +156,7 @@ jobs:
         '
     - name: Restore the built kernel
       id: kernel-cache
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
         key: lmi-kernel-v2-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
@@ -170,6 +170,12 @@ jobs:
         ./unixnu build kernel -D ../lmipro
 
         '
+    - name: Preserve the qualified source kernel before payload diagnostics
+      uses: actions/cache/save@v4
+      if: steps.kernel-cache.outputs.cache-hit != 'true'
+      with:
+        path: unixnu/out/lmipro/*/lmipro/kernel
+        key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
     - name: Build the trust cache bundle
       run: "cd unixnu\n# Extract the two modules the payload trust cache carries. The board has\n# no [ipsw] fetch list, so\
         \ name them explicitly.\n./unixnu ipsw fetch -D ../lmipro StaticTrustCache \"Cryptex1,SystemTrustCache\"\n# The extracted\

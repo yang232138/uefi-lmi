@@ -1,6 +1,6 @@
 --- a/board.toml
 +++ b/board.toml
-@@ -81,11 +81,10 @@
+@@ -81,10 +81,9 @@
  loader = "firmware"
  title = "Redmi K30 Pro"
  kernel_args = ["-v", "serial=3", "boot-progress=2"]
@@ -8,11 +8,9 @@
 -# few seconds into the kernel, which would hide any later stage.
 -# panic_screen is off: its entry-probe patch stalls the kernel before the MMU
 -# is enabled, which hides the very failures it is meant to show.
--panic_screen = false
-+# Official green-bar diagnosis: install the two entry colors and retain
-+# a bounded MMU-enabled reset checkpoint for this diagnostic payload only.
++# Official standalone entry probes: colors and six-second post-MMU reset.
++# The optional panic renderer exceeds this kernel's padding by 79 bytes.
 +entry_probe_reset_delay = 6
-+panic_screen = true
+ panic_screen = false
  
  [payload.adt]
- # The platform seed is never stored in a repository: payload builds take it from
