@@ -3,7 +3,7 @@ import hashlib,importlib.util,json,os,shutil,struct,subprocess,tomllib,zlib
 root=Path('unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro');out=Path('output');out.mkdir(exist_ok=True)
 raw=root/'kernel/kernel.macho';volume=root/'payload/payload.img';report=json.loads((root/'payload/payload.json').read_text())
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
-assert report['panic_screen'] is False and report['kernel_sha256']==sha(raw)=='7c14b5315de27d23f414a438bfa8708cb5369506ca3978a79f364ccca34a9f6a'
+assert report['panic_screen'] is False and report['kernel_sha256']==sha(raw)
 assert report['payload_kernel_sha256']!=sha(raw)
 subprocess.run(['mcopy','-o','-i',str(volume),'::EFI/UniXNU/Payloads/kernel.macho',str(out/'kernel-probed.macho')],check=True)
 patched=(out/'kernel-probed.macho').read_bytes();assert hashlib.sha256(patched).hexdigest()==report['payload_kernel_sha256']
@@ -13,8 +13,28 @@ spec=importlib.util.spec_from_file_location('official_entry',script);m=importlib
 d=raw.read_bytes();assert len(d)==len(patched);m.load_segments(d);names=m.rebase(raw,d)
 word=lambda va:struct.unpack_from('<I',patched,m.file_offset(va))[0]
 symbols=m.kernel_symbols(raw)
-call,callee=m.find_call(d,symbols,'_arm_init','_serial_init',1)
-assert call==0xfffffff0079b9d6c and callee==0xfffffff00794ed4c
+call,callee=m.find_call(d,symbols,'_arm_init','_PE_create_console',1)
+assert symbols.get(callee)=='_PE_create_console'
+
+import sys
+sys.path.insert(0,str(Path('unixnu/scripts').resolve()))
+from unixnu.config import parse_config
+assert parse_config((root/'.config').read_text())['XNU_DT_PANIC_REGION'] is True
+inputs=json.loads((root/'kernel/dt-panic-inputs.json').read_text())
+assert inputs['kernel_sha256']==sha(raw)
+record=inputs['record']
+assert any('-DXNU_DT_PANIC_REGION=1' in value for value in record['arguments'])
+text=inputs['source_text']
+assert hashlib.sha256(text.encode()).hexdigest()==inputs['source_sha256']
+assert '#if defined(PLATFORM_PANIC_LOG_PADDR) && !(defined(XNU_DT_PANIC_REGION) && XNU_DT_PANIC_REGION)' in text
+lo,hi=m.function_range(symbols,'_PE_create_console')
+body=d[m.file_offset(lo):m.file_offset(hi-4)+4]
+assert struct.pack('<2I',0x52980000,0x72a781e0) not in body,'Fixed BCM2837 panic mapping remained'
+dtproof=dict(config_enabled=True,actual_compile_flag_seen=True,official_dt_guard_seen=True,
+ actual_console_fixed_panic_mapping_removed=True,source_sha256=inputs['source_sha256'],
+ compile_record=record,original_kernel_sha256=sha(raw),hardware_tested=False)
+(out/'dt-panic-compile-proof.json').write_text(json.dumps(dtproof,indent=2)+'\n')
+
 for site,stage in [(m.ENTRY_VA,1),(m.MMU_ENABLE_VA,2),(call,4)]:assert word(site)==m.branch(site,m.CAVES[stage])
 def target(va):
  value=word(va);assert value>>26==0b000101
@@ -30,7 +50,7 @@ assert bytes(normalized)==d,'Unexpected executable changes outside the official 
 # not merely the presence of a branch into the reset cave.
 replay=out/'kernel-replay.macho';shutil.copyfile(raw,replay)
 os.environ['UNIXNU_UEFI']=str(Path('uefi').resolve())
-subprocess.run(['python3',str(script),str(replay),'--reset-delay','6','--reset-after','_serial_init','--in','_arm_init','--occurrence','1'],check=True)
+subprocess.run(['python3',str(script),str(replay),'--reset-delay','6','--reset-after','_PE_create_console','--in','_arm_init','--occurrence','1'],check=True)
 assert replay.read_bytes()==patched
 replay.unlink()
 for file in ['boot.img']:
@@ -54,8 +74,8 @@ assert z.unused_data==Path('overlay/DeviceTree/lmi.dtb').read_bytes()
 meta=dict(image_sha256=sha(out/'boot.img'),shim_bytes=shim,firmware_sha256=sha(fd),payload_sha256=sha(volume),header_version=version,page_bytes=page,report_source='parsed actual packed image and round-tripped exact inputs')
 (out/'boot.json').write_text(json.dumps(meta,indent=2)+'\n')
 proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel_sha256=hashlib.sha256(patched).hexdigest(),
- fd_sha256=sha(fd),entry_hooks_verified=True,panic_hooks_verified=False,other_kernel_bytes_unchanged=True,
- official_probe_replay_identical=True,reset_delay_seconds=6,reset_checkpoint='after serial_init returns in arm_init',reset_call_va=hex(call),reset_original_callee=hex(callee),
+ fd_sha256=sha(fd),dt_panic_region_enabled=True,fixed_bcm_panic_mapping_removed=True,entry_hooks_verified=True,panic_hooks_verified=False,other_kernel_bytes_unchanged=True,
+ official_probe_replay_identical=True,reset_delay_seconds=6,reset_checkpoint='after PE_create_console returns in arm_init',reset_call_va=hex(call),reset_original_callee=hex(callee),
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),
  firmware_source='identical photo-qualified FD720481eb preserved as a pinned compressed branch input',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')

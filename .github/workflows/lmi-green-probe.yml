@@ -1,4 +1,4 @@
-name: lmi serial initialization checkpoint
+name: lmi device-tree panic region and console checkpoint
 'on':
   push:
     branches:
@@ -140,9 +140,19 @@ jobs:
 
         p=tomllib.loads(Path(''lmipro/board.toml'').read_text())[''payload'']
 
-        assert p[''entry_probe_reset_after'']==''_serial_init''
+        assert p[''entry_probe_reset_after'']==''_PE_create_console''
 
         assert p[''entry_probe_reset_in'']==''_arm_init'' and p[''entry_probe_reset_occurrence'']==1
+
+        PY
+
+        python3 - <<''PY''
+
+        from pathlib import Path
+
+        p=Path(''lmipro/configs/lmipro_defconfig'')
+
+        p.write_text(p.read_text()+''\n# Use only the validated board DT panic region, never the BCM2837 fixed address.\nCONFIG_XNU_DT_PANIC_REGION=y\n'')
 
         PY
 
@@ -167,14 +177,16 @@ jobs:
 
         echo "device_sha=$(git -C lmipro rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+        echo "config_sha=$(shasum -a 256 unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/.config | cut -d'' '' -f1)" >> "$GITHUB_OUTPUT"
+
         '
     - name: Restore the built kernel
       id: kernel-cache
       uses: actions/cache/restore@v4
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
-        key: lmi-kernel-v2-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
-          }}-0x8011
+        key: lmi-kernel-v3-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
+          }}-${{ steps.source-revisions.outputs.config_sha }}-0x8011
     - name: Build the kernel
       if: steps.kernel-cache.outputs.cache-hit != 'true'
       env:
@@ -182,6 +194,37 @@ jobs:
       run: 'cd unixnu
 
         ./unixnu build kernel -D ../lmipro
+
+        '
+    - name: Preserve actual DT-panic compile evidence alongside its kernel
+      if: steps.kernel-cache.outputs.cache-hit != 'true'
+      run: 'python3 - <<''PY''
+
+        from pathlib import Path
+
+        import hashlib,json
+
+        root=Path(''unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro'')
+
+        records=list((root/''tree/build/xnu/ios-obj'').rglob(''pe_init.o.json''));assert len(records)==1
+
+        record=json.loads(records[0].read_text().strip().rstrip('',''))
+
+        assert any(''-DXNU_DT_PANIC_REGION=1'' in value for value in record[''arguments''])
+
+        source=Path(record[''file''])
+
+        if not source.is_absolute():source=Path(record[''directory''])/source
+
+        text=source.read_text()
+
+        assert ''#if defined(PLATFORM_PANIC_LOG_PADDR) && !(defined(XNU_DT_PANIC_REGION) && XNU_DT_PANIC_REGION)'' in text
+
+        report=dict(record=record,source_text=text,source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),kernel_sha256=hashlib.sha256((root/''kernel/kernel.macho'').read_bytes()).hexdigest())
+
+        (root/''kernel/dt-panic-inputs.json'').write_text(json.dumps(report,indent=2))
+
+        PY
 
         '
     - name: Preserve the qualified source kernel before payload diagnostics
@@ -216,7 +259,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-serial-init-checkpoint
+        name: lmi-dt-panic-console-checkpoint
         path: 'output/boot.img
 
           output/boot.json
@@ -238,6 +281,10 @@ jobs:
           output/SHA256SUMS
 
           unixnu/out/**/logs/*.log
+
+          output/kernel-original.macho
+
+          output/dt-panic-compile-proof.json
 
           '
         if-no-files-found: warn
