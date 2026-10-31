@@ -22,8 +22,11 @@ gMemoryDescriptor[] = {
   // hands it out, and keep it mapped: publishing the payload while the boot
   // loader's address was outside the map ended in a second-level translation
   // fault in ArmCpuDxe's exception handler.
-  {"Payload Ramdisk",   0x93200000, 0x04000000, AddMem, SYS_MEM, SYS_MEM_CAP, Reserv, WRITE_BACK_XN},
-  {"RAM Partition",     0x97200000, 0x01700000, AddMem, SYS_MEM, SYS_MEM_CAP, Conv,   WRITE_BACK_XN},
+  //
+  // 86 MiB: the FAT payload carries the ~52 MiB kernel, the trust cache and the
+  // 32 MiB Data seed. The former "RAM Partition" window at 0x97200000 is gone:
+  // nothing here needed it and the payload has to grow past it.
+  {"Payload Ramdisk",   0x93200000, 0x05600000, AddMem, SYS_MEM, SYS_MEM_CAP, Reserv, WRITE_BACK_XN},
   {"DXE Heap",          0x98900000, 0x03300000, AddMem, SYS_MEM, SYS_MEM_CAP, Conv,   WRITE_BACK_XN},
   {"Sched Heap",        0x9BC00000, 0x00400000, AddMem, SYS_MEM, SYS_MEM_CAP, BsData, WRITE_BACK_XN},
   {"Display Reserved",  0x9C000000, 0x02400000, AddMem, MEM_RES, SYS_MEM_CAP, Reserv, WRITE_THROUGH_XN},
