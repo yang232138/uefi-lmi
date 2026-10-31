@@ -223,7 +223,18 @@ jobs:
           ./unixnu fetch -D ../lmipro
           ./unixnu status -D ../lmipro
 
+      - name: Restore the built kernel
+        id: kernel-cache
+        uses: actions/cache@v4
+        with:
+          path: unixnu/out/lmipro/*/lmipro/kernel
+          # Keyed on the upstreams only: kernel_args and panic_screen live in
+          # board.toml and change the payload, not the kernel, so a tweak there
+          # must not force a rebuild.
+          key: lmi-kernel-${{ inputs.unixnu_ref }}-${{ inputs.device_ref }}-${{ inputs.unique_chip_id }}
+
       - name: Build the kernel
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
         env:
           # The Apple source listing goes through the GitHub API and anonymous
           # calls from hosted runners hit the shared rate limit.
