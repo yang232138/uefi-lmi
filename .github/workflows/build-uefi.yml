@@ -39,6 +39,10 @@ on:
         description: Platform seed for the payload (board.toml marks it required)
         required: false
         default: "0x8011"
+      skip_userdata:
+        description: Skip the userdata root image job (it is unchanged after the first flash)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -272,6 +276,9 @@ jobs:
     # Builds the XNU root volume from the OS profile's IPSW. hdiutil is macOS
     # only, and the extracted components plus the written image need roughly
     # 20 GB, so the IPSW cache is dropped as soon as the image exists.
+    # Skipped from the dispatch inputs once the image has been flashed: it does
+    # not change when only the firmware or the payload does.
+    if: ${{ !inputs.skip_userdata }}
     needs: firmware
     runs-on: macos-26
     timeout-minutes: 360
