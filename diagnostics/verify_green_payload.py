@@ -5,7 +5,7 @@ raw=root/'kernel/kernel.macho';volume=root/'payload/payload.img';report=json.loa
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 assert report['panic_screen'] is True and report['kernel_sha256']==sha(raw)
 assert report['payload_kernel_sha256']!=sha(raw)
-subprocess.run(['mcopy','-o','-i',str(volume),'::kernel.macho',str(out/'kernel-probed.macho')],check=True)
+subprocess.run(['mcopy','-o','-i',str(volume),'::EFI/UniXNU/Payloads/kernel.macho',str(out/'kernel-probed.macho')],check=True)
 patched=(out/'kernel-probed.macho').read_bytes();assert hashlib.sha256(patched).hexdigest()==report['payload_kernel_sha256']
 script=Path('unixnu/scripts/patch-xnu-entry-probe.py')
 assert sha(script)=='159eb1ea8d6c1da30f26913a281f46e21d940a1ae7886656529907ec3edf96ad'
@@ -52,7 +52,7 @@ proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel
  official_probe_replay_identical=True,reset_delay_seconds=6,reset_checkpoint='immediately after enabling MMU, before platform/storage initialization',
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),
- firmware_source='qualified artifact40877381481 with exact FD digest',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')
+ firmware_source='same qualified FD preserved in artifact41046774501, exact digest checked',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))

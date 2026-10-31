@@ -70,9 +70,9 @@ jobs:
     - name: Download the firmware volume
       uses: actions/download-artifact@v4
       with:
-        name: lmi-mmu-helper-payload
+        name: lmipro-verified-ram-audit
         path: artifact
-        run-id: 40877381481
+        run-id: 41046774501
         github-token: ${{ github.token }}
     - name: Fetch Mu-Silicium for the boot image tools
       run: 'mkdir uefi && cd uefi
