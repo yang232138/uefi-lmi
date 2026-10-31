@@ -93,7 +93,6 @@
 #
 [Components]
   lmiPkg/Drivers/LmiBootMemoryDxe/LmiBootMemoryDxe.inf
-  lmiPkg/Drivers/GptDump/GptDump.inf
 
   UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
