@@ -7,13 +7,19 @@
 #include <Protocol/BlockIo.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/DevicePathToText.h>
+#include <Protocol/LoadedImage.h>
+#include <Protocol/DriverBinding.h>
 #include "StorageCore.h"
+#include "FirmwareNames.h"
 
 static EFI_SYSTEM_TABLE *ST;
 static EFI_GUID BlockGuid=EFI_BLOCK_IO_PROTOCOL_GUID;
 static EFI_GUID PathGuid=EFI_DEVICE_PATH_PROTOCOL_GUID;
 static EFI_GUID TextGuid=EFI_DEVICE_PATH_TO_TEXT_PROTOCOL_GUID;
 static EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *PathText;
+static EFI_GUID LoadedGuid=EFI_LOADED_IMAGE_PROTOCOL_GUID;
+static EFI_GUID BindingGuid=EFI_DRIVER_BINDING_PROTOCOL_GUID;
+static UINTN SmemPresent,SpmiPresent,UfsLoaded,UfsBindings,LoadedCount,BindingCount;
 static char Logs[512][160];
 static UINTN LogCount;
 static UINTN AllReads,ReadFailures,BytesRead,PhysicalDisks,Partitions,Targets,Passed;
@@ -108,7 +114,10 @@ static VOID show_path(EFI_HANDLE h) {
   }
 }
 static VOID summary(void) {
-  clear();output("LMIPRO UEFI STORAGE RO v1");output("ReadBlocks only / no disk writes");
+  clear();output("LMIPRO UEFI STORAGE RO v2");output("ReadBlocks + driver inventory / no disk writes");
+  begin("DEPEX SMEM=");number(SmemPresent,10);kv(" SPMI=",SpmiPresent,10);output(Text);
+  begin("UFS image=");number(UfsLoaded,10);kv(" bindings=",UfsBindings,10);output(Text);
+  begin("All images=");number(LoadedCount,10);kv(" bindings=",BindingCount,10);output(Text);
   begin("Disks=");number(PhysicalDisks,10);kv(" partitions=",Partitions,10);output(Text);
   begin("Targets=");number(Targets,10);kv(" matched=",Passed,10);output(Text);
   begin("Reads=");number(AllReads,10);kv(" failures=",ReadFailures,10);output(Text);
@@ -131,12 +140,81 @@ static VOID logpage(UINTN page) {
   UINTN first=page*20;for(UINTN i=first;i<LogCount&&i<first+20;i++) output(Logs[i]);
   output("N/P: next/previous  S: summary  Esc: menu");
 }
+static BOOLEAN guid_equal(const EFI_GUID *a,const EFI_GUID *b) {
+  const UINT8 *x=(const UINT8 *)a,*y=(const UINT8 *)b;
+  for(UINTN i=0;i<16;i++) if(x[i]!=y[i]) return FALSE;return TRUE;
+}
+static VOID hexwidth(UINT64 v,UINTN digits) {
+  for(UINTN i=digits;i;i--) {char t[2]={"0123456789abcdef"[(v>>((i-1)*4))&15],0};append(t);}
+}
+static VOID guid_text(const EFI_GUID *g) {
+  hexwidth(g->Data1,8);append("-");hexwidth(g->Data2,4);append("-");hexwidth(g->Data3,4);append("-");
+  for(UINTN i=0;i<8;i++) {if(i==2) append("-");hexwidth(g->Data4[i],2);}
+}
+static BOOLEAN file_guid(EFI_DEVICE_PATH_PROTOCOL *dp,EFI_GUID *g) {
+  UINTN used=0;
+  while(dp&&used+sizeof(*dp)<=4096) {
+    UINTN len=(UINTN)dp->Length[0]+((UINTN)dp->Length[1]<<8);
+    if(len<sizeof(*dp)||len>4096-used) return FALSE;
+    if(dp->Type==MEDIA_DEVICE_PATH&&dp->SubType==MEDIA_PIWG_FW_FILE_DP&&len==sizeof(MEDIA_FW_VOL_FILEPATH_DEVICE_PATH)) {
+      ByteCopy(g,(UINT8 *)dp+sizeof(*dp),sizeof(*g));return TRUE;
+    }
+    if(dp->Type==END_DEVICE_PATH_TYPE) return FALSE;
+    used+=len;dp=(EFI_DEVICE_PATH_PROTOCOL *)((UINT8 *)dp+len);
+  }
+  return FALSE;
+}
+static BOOLEAN describe_image(EFI_HANDLE image,const char *prefix,UINTN index) {
+  EFI_LOADED_IMAGE_PROTOCOL *li=NULL;EFI_GUID g;
+  EFI_STATUS st=ST->BootServices->HandleProtocol(image,&LoadedGuid,(VOID **)&li);
+  begin(prefix);number(index,10);
+  if(EFI_ERROR(st)||!li) {kv(" LoadedImage status=0x",st,16);emit();return FALSE;}
+  if(!file_guid(li->FilePath,&g)) {record(Text);record("  no FV file GUID (application or other path)");return FALSE;}
+  append(" ");guid_text(&g);emit();
+  BOOLEAN ufs=FALSE;
+  for(UINTN i=0;i<sizeof(FirmwareNames)/sizeof(FirmwareNames[0]);i++) if(guid_equal(&g,&FirmwareNames[i].guid)) {
+    begin("  FD module: ");append(FirmwareNames[i].name);emit();
+    const char *n=FirmwareNames[i].name;ufs=n[0]=='U'&&n[1]=='F'&&n[2]=='S'&&n[3]=='D'&&n[4]=='x'&&n[5]=='e'&&n[6]==0;break;
+  }
+  return ufs;
+}
+static VOID inventory(void) {
+  struct {const char *name;EFI_GUID guid;} probes[]={
+    {"SMEM",{0xf4e5c7d0,0xd239,0x47cb,{0xaa,0xcd,0x7f,0x66,0xef,0x76,0x32,0x38}}},
+    {"SPMI",{0xfa5f306b,0xf47d,0x4ac4,{0xa4,0x7d,0x88,0x2f,0x82,0x04,0xec,0x30}}},
+    {"Clock",{0x241afae6,0x885f,0x4f6c,{0xa7,0xea,0xc2,0x8e,0xab,0x79,0xc3,0xe5}}},
+    {"PlatformInfo",{0x157a5c45,0x21b2,0x43c5,{0xba,0x7c,0x82,0x2f,0xee,0x5f,0xe5,0x99}}},
+    {"SCM",{0x77ed108d,0x8524,0x4b8b,{0x9d,0x2e,0x34,0x98,0x7a,0xec,0xb9,0xc1}}},
+    {"MemCardInfo",{0x85c1f7d2,0xbce6,0x4f31,{0x8f,0x4d,0xd3,0x7e,0x03,0xd0,0x5e,0xaa}}}
+  };
+  record("Runtime protocol inventory; no protocol methods invoked");
+  for(UINTN i=0;i<sizeof(probes)/sizeof(probes[0]);i++) {
+    VOID *p=NULL;EFI_STATUS st=ST->BootServices->LocateProtocol(&probes[i].guid,NULL,&p);
+    BOOLEAN present=!EFI_ERROR(st)&&p!=NULL;
+    if(i==0) SmemPresent=present;if(i==1) SpmiPresent=present;
+    begin("PROTO ");append(probes[i].name);kv(" present=",present,10);kv(" status=0x",st,16);emit();
+  }
+  EFI_HANDLE *hs=NULL;UINTN n=0;
+  EFI_STATUS st=ST->BootServices->LocateHandleBuffer(ByProtocol,&LoadedGuid,NULL,&n,&hs);
+  begin("LoadedImage enumeration status=0x");number(st,16);kv(" count=",n,10);emit();
+  if(!EFI_ERROR(st)) {LoadedCount=n;for(UINTN i=0;i<n&&i<192;i++) if(describe_image(hs[i],"IMAGE ",i)) UfsLoaded++;}
+  if(hs) ST->BootServices->FreePool(hs);hs=NULL;n=0;
+  st=ST->BootServices->LocateHandleBuffer(ByProtocol,&BindingGuid,NULL,&n,&hs);
+  begin("DriverBinding enumeration status=0x");number(st,16);kv(" count=",n,10);emit();
+  if(!EFI_ERROR(st)) {BindingCount=n;for(UINTN i=0;i<n&&i<128;i++) {
+    EFI_DRIVER_BINDING_PROTOCOL *b=NULL;
+    if(!EFI_ERROR(ST->BootServices->HandleProtocol(hs[i],&BindingGuid,(VOID **)&b))&&b&&describe_image(b->ImageHandle,"BINDING ",i)) UfsBindings++;
+  }}
+  if(hs) ST->BootServices->FreePool(hs);
+  record("LoadedImage presence does not prove successful StartImage.");
+}
 EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
   (void)image;ST=table;if(!ST||!ST->BootServices) return EFI_INVALID_PARAMETER;
   ST->BootServices->SetWatchdogTimer(0,0,0,NULL);setup_console();
-  record("LMIPRO UEFI STORAGE RO v1");
+  record("LMIPRO UEFI STORAGE RO v2");
   record("No WriteBlocks, controller reset or direct MMIO.");
   ST->BootServices->LocateProtocol(&TextGuid,NULL,(VOID **)&PathText);
+  inventory();
   EFI_HANDLE *handles=NULL;UINTN count=0;
   EFI_STATUS st=ST->BootServices->LocateHandleBuffer(ByProtocol,&BlockGuid,NULL,&count,&handles);LastStatus=st;
   if(!EFI_ERROR(st)) for(UINTN i=0;i<count&&i<128;i++) {

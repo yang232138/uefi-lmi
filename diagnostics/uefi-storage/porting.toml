@@ -1,6 +1,6 @@
 device = "lmipro"
-stage = "uefi-standard-read-only-metadata"
-status = "awaiting-cloud-build-and-hardware-observation"
+stage = "uefi-storage-driver-dependency-inventory"
+status = "v1-hardware-ram-only-v2-awaiting-build-and-hardware"
 parent_overlay_commit = "43fb473f3655c7898079eede9f02badd53b1015f"
 mu_commit = "e51cd877e31c8fbb322032dc4cb6715e83d25ad3"
 basecore_commit = "cfb93724a06ff86ff5ba971413368a7809ee42a5"
@@ -16,3 +16,9 @@ kernel_build = false
 full_disk_hash = false
 root_mount_proven = false
 remaining = ["Confirm physical UFS BlockIo availability", "Compare on-device GPT and six exact metadata samples", "Only then choose native XNU UFS DMA/host initialization work"]
+
+previous_v1_boot_sha256 = "17e8cf6ddd4fa21b4cdc567bd90955fa710359657ee535dc2d2dae80f0a137e3"
+v1_physical_disks = 0
+v1_reads = 0
+ufs_depex = ["f4e5c7d0-d239-47cb-aacd-7f66ef763238", "fa5f306b-f47d-4ac4-a47d-882f8204ec30"]
+forced_driver_start = false
