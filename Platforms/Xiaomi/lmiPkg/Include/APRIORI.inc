@@ -28,7 +28,9 @@ APRIORI DXE {
   INF Binaries/lmi/QcomPkg/Drivers/ClockDxe/ClockDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/SPMIDxe/SPMIDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/ShmBridgeDxe/ShmBridgeDxeLA.inf
-  INF Binaries/lmi/QcomPkg/Drivers/TzDxe/ScmDxeLA.inf
+  # ScmDxe/TzDxe fault at DXE early on this board (ArmCpuDxe reports a
+  # second-level translation fault at FAR 0x09DFE000). UniXNU needs neither.
+  #INF Binaries/lmi/QcomPkg/Drivers/TzDxe/ScmDxeLA.inf
   INF Binaries/lmi/QcomPkg/Drivers/TLMMDxe/TLMMDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/ResetRuntimeDxe/ResetRuntimeDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/PmicDxe/PmicDxeLa.inf
@@ -42,7 +44,7 @@ APRIORI DXE {
 
   INF FatPkg/EnhancedFatDxe/Fat.inf
 
-  INF Binaries/lmi/QcomPkg/Drivers/TzDxe/TzDxeLA.inf
+  #INF Binaries/lmi/QcomPkg/Drivers/TzDxe/TzDxeLA.inf
 
   INF MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
 
