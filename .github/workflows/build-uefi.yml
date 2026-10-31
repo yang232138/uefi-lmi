@@ -285,16 +285,18 @@ jobs:
           seed=$(find ../data-seed -name 'owner-data-32.cdr' 2>/dev/null | head -1)
           if [ -n "$seed" ]; then
             echo "Data seed: $seed"
-            seed_args="--data-ramdisk $seed"
+            ./unixnu build payload -D ../lmipro \
+              --unique-chip-id "$UNIXNU_UNIQUE_CHIP_ID" \
+              --uefi ../uefi \
+              --trust-cache trust.bundle \
+              --data-ramdisk "$seed"
           else
-            echo "no Data seed artifact (userdata job skipped); building without it"
-            seed_args=""
+            echo "no Data seed artifact; building the payload without it"
+            ./unixnu build payload -D ../lmipro \
+              --unique-chip-id "$UNIXNU_UNIQUE_CHIP_ID" \
+              --uefi ../uefi \
+              --trust-cache trust.bundle
           fi
-          ./unixnu build payload -D ../lmipro \
-            --unique-chip-id "$UNIXNU_UNIQUE_CHIP_ID" \
-            --uefi ../uefi \
-            --trust-cache trust.bundle \
-            $seed_args
 
       - name: Pack the boot image with the payload in the kernel
         # lmi's boot loader ignores the boot image's own ramdisk (like the 3a in
