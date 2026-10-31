@@ -367,20 +367,24 @@ jobs:
         run: |
           cd unixnu
           img=$(find out -name 'userdata-root.img' | head -1)
-          test -n "$img"
+          report=$(find out -name 'userdata-root.json' | head -1)
+          test -n "$img" && test -n "$report"
           ls -lh "$img"
-          # Mount only the OS window: the first window starts after the 1 MiB
-          # manifest, and prepare-owner-data-fixture.py reads it from here.
+          # hdiutil here has no -offset, so cut the first 1 MiB manifest off and
+          # take the OS window as a standalone raw image.
+          os_bytes=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['windows'][0]['size'])" "$report")
+          os_mib=$(( (os_bytes + 1048575) / 1048576 ))
+          echo "OS window: $os_bytes bytes (~$os_mib MiB)"
+          dd if="$img" of=out/os.img bs=1m skip=1 count="$os_mib" status=none
+          df -h "$GITHUB_WORKSPACE"
           mountpoint="$(pwd)/out/os-mount"
           mkdir -p "$mountpoint"
-          hdiutil attach -readonly -nobrowse -noverify \
-            -imagekey diskimage-class=CRawDiskImage \
-            -offset 1048576 \
-            -mountpoint "$mountpoint" "$img"
+          hdiutil attach -readonly -nobrowse -noverify -mountpoint "$mountpoint" out/os.img
           mkdir -p .cache/firmware/target-volumes
           ln -sfn "$mountpoint" .cache/firmware/target-volumes/os-mount
           python3 scripts/prepare-owner-data-fixture.py --output build/data-seed
           hdiutil detach "$mountpoint" || true
+          rm -f out/os.img
           ls -lh build/data-seed
 
       - name: Upload the Data seed
