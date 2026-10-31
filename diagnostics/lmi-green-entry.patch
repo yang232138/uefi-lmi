@@ -1,6 +1,6 @@
 --- a/board.toml
 +++ b/board.toml
-@@ -81,10 +81,12 @@
+@@ -81,11 +81,9 @@
  loader = "firmware"
  title = "Redmi K30 Pro"
  kernel_args = ["-v", "serial=3", "boot-progress=2"]
@@ -8,12 +8,10 @@
 -# few seconds into the kernel, which would hide any later stage.
 -# panic_screen is off: its entry-probe patch stalls the kernel before the MMU
 -# is enabled, which hides the very failures it is meant to show.
-+# Official stage4 checkpoint: second platform-init return after the console fix.
-+# Only the official call-site checkpoint changes; actual kernel is unchanged.
-+entry_probe_reset_delay = 6
-+entry_probe_reset_after = "_PE_init_platform"
-+entry_probe_reset_in = "_arm_init"
-+entry_probe_reset_occurrence = 2
- panic_screen = false
+-panic_screen = false
++# Continue normal kernel execution; retain the official panic display.
++# No timed reset checkpoint is installed.
++panic_screen = true
  
  [payload.adt]
+ # The platform seed is never stored in a repository: payload builds take it from

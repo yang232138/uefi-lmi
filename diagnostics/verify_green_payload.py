@@ -3,7 +3,7 @@ import hashlib,importlib.util,json,os,shutil,struct,subprocess,tomllib,zlib
 root=Path('unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro');out=Path('output');out.mkdir(exist_ok=True)
 raw=root/'kernel/kernel.macho';volume=root/'payload/payload.img';report=json.loads((root/'payload/payload.json').read_text())
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
-assert report['panic_screen'] is False and report['kernel_sha256']==sha(raw)=='fd3c535759026d11c97a66e08e066b19e4e189e92c03804dd2b2f1f696eb614f'
+assert report['panic_screen'] is True and report['kernel_sha256']==sha(raw)=='fd3c535759026d11c97a66e08e066b19e4e189e92c03804dd2b2f1f696eb614f'
 assert report['payload_kernel_sha256']!=sha(raw)
 subprocess.run(['mcopy','-o','-i',str(volume),'::EFI/UniXNU/Payloads/kernel.macho',str(out/'kernel-probed.macho')],check=True)
 patched=(out/'kernel-probed.macho').read_bytes();assert hashlib.sha256(patched).hexdigest()==report['payload_kernel_sha256']
@@ -13,9 +13,6 @@ spec=importlib.util.spec_from_file_location('official_entry',script);m=importlib
 d=raw.read_bytes();assert len(d)==len(patched);m.load_segments(d);names=m.rebase(raw,d)
 word=lambda va:struct.unpack_from('<I',patched,m.file_offset(va))[0]
 symbols=m.kernel_symbols(raw)
-call,callee=m.find_call(d,symbols,'_arm_init','_PE_init_platform',2)
-assert symbols.get(callee)=='_PE_init_platform'
-assert call==0xfffffff0079b9f88 and callee==0xfffffff00794e158
 
 import sys
 sys.path.insert(0,str(Path('unixnu/scripts').resolve()))
@@ -37,22 +34,26 @@ dtproof=dict(config_enabled=True,build_script_mode_seen=True,per_file_flag_in_co
 assert dtproof['per_file_flag_in_compile_record']
 (out/'dt-panic-compile-proof.json').write_text(json.dumps(dtproof,indent=2)+'\n')
 
-for site,stage in [(m.ENTRY_VA,1),(m.MMU_ENABLE_VA,2),(call,4)]:assert word(site)==m.branch(site,m.CAVES[stage])
+for site,stage in [(m.ENTRY_VA,1),(m.MMU_ENABLE_VA,2)]:assert word(site)==m.branch(site,m.CAVES[stage])
 def target(va):
  value=word(va);assert value>>26==0b000101
  n=value&0x3ffffff
  if n&(1<<25):n-=1<<26
  return va+n*4
+panic_lo,panic_hi=m.CAVES[2]+m.CAVE_SIZE,m.PANIC_CAVE_END
+common=names['_panic_trap_to_debugger']
+assert not any(d[m.file_offset(panic_lo):m.file_offset(panic_hi)])
+for site in [m.PANIC_VA,common]:assert panic_lo<=target(site)<panic_hi
+assert word(m.AFTER_MMU_VA)==struct.unpack_from('<I',d,m.file_offset(m.AFTER_MMU_VA))[0]
 normalized=bytearray(patched)
-regions=[(m.ENTRY_VA,4),(m.MMU_ENABLE_VA,4),(call,4),*( (m.CAVES[s],m.CAVE_SIZE) for s in (1,2,4))]
+regions=[(m.ENTRY_VA,4),(m.MMU_ENABLE_VA,4),(m.PANIC_VA,4),(common,4),*((m.CAVES[s],m.CAVE_SIZE) for s in (1,2)),(panic_lo,panic_hi-panic_lo)]
 for va,size in regions:
  at=m.file_offset(va);normalized[at:at+size]=d[at:at+size]
 assert bytes(normalized)==d,'Unexpected executable changes outside the official entry/reset/panic hooks'
-# Replay the exact official invocation to qualify the real six-second reset,
-# not merely the presence of a branch into the reset cave.
+# Replay the exact official no-reset invocation and compare the complete kernel.
 replay=out/'kernel-replay.macho';shutil.copyfile(raw,replay)
 os.environ['UNIXNU_UEFI']=str(Path('uefi').resolve())
-subprocess.run(['python3',str(script),str(replay),'--reset-delay','6','--reset-after','_PE_init_platform','--in','_arm_init','--occurrence','2'],check=True)
+subprocess.run(['python3',str(script),str(replay),'--panic-screen','--no-reset'],check=True)
 assert replay.read_bytes()==patched
 replay.unlink()
 for file in ['boot.img']:
@@ -76,8 +77,8 @@ assert z.unused_data==Path('overlay/DeviceTree/lmi.dtb').read_bytes()
 meta=dict(image_sha256=sha(out/'boot.img'),shim_bytes=shim,firmware_sha256=sha(fd),payload_sha256=sha(volume),header_version=version,page_bytes=page,report_source='parsed actual packed image and round-tripped exact inputs')
 (out/'boot.json').write_text(json.dumps(meta,indent=2)+'\n')
 proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel_sha256=hashlib.sha256(patched).hexdigest(),
- fd_sha256=sha(fd),dt_panic_region_enabled=True,fixed_bcm_panic_mapping_removed=True,entry_hooks_verified=True,panic_hooks_verified=False,other_kernel_bytes_unchanged=True,
- official_probe_replay_identical=True,reset_delay_seconds=6,reset_checkpoint='after second PE_init_platform returns in arm_init with the validated console fix',reset_call_va=hex(call),reset_original_callee=hex(callee),
+ fd_sha256=sha(fd),dt_panic_region_enabled=True,fixed_bcm_panic_mapping_removed=True,entry_hooks_verified=True,panic_hooks_verified=True,other_kernel_bytes_unchanged=True,
+ official_probe_replay_identical=True,reset_delay_seconds=0,timed_reset=False,reset_checkpoint='none; continue normal execution and display actual panic',
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),
  firmware_source='identical photo-qualified FD720481eb preserved as a pinned compressed branch input',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')

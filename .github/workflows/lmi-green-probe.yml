@@ -1,4 +1,4 @@
-name: lmi platform checkpoint after console fix
+name: lmi continue boot with official panic screen
 'on':
   push:
     branches:
@@ -128,7 +128,7 @@ jobs:
 
         b=tomllib.loads(Path(''lmipro/board.toml'').read_text())
 
-        assert not b[''payload''][''panic_screen''] and b[''payload''][''entry_probe_reset_delay'']==6
+        assert b[''payload''][''panic_screen''] and not b[''payload''].get(''entry_probe_reset_delay'')
 
         PY
 
@@ -140,9 +140,9 @@ jobs:
 
         p=tomllib.loads(Path(''lmipro/board.toml'').read_text())[''payload'']
 
-        assert p[''entry_probe_reset_after'']==''_PE_init_platform''
+        assert ''entry_probe_reset_after'' not in p
 
-        assert p[''entry_probe_reset_in'']==''_arm_init'' and p[''entry_probe_reset_occurrence'']==2
+        assert ''entry_probe_reset_in'' not in p and ''entry_probe_reset_occurrence'' not in p
 
         PY
 
@@ -263,7 +263,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-dt-platform-checkpoint
+        name: lmi-dt-continue-panic
         path: 'output/boot.img
 
           output/boot.json
