@@ -8,12 +8,12 @@
 -# few seconds into the kernel, which would hide any later stage.
 -# panic_screen is off: its entry-probe patch stalls the kernel before the MMU
 -# is enabled, which hides the very failures it is meant to show.
-+# Official stage4 checkpoint: second PE_init_platform return in arm_init.
-+# VM, serial and console creation precede this actual audited call.
++# Official stage4 checkpoint: arm_vm_init return in arm_init.
++# This separates VM setup from later serial, console and platform calls.
 +entry_probe_reset_delay = 6
-+entry_probe_reset_after = "_PE_init_platform"
++entry_probe_reset_after = "_arm_vm_init"
 +entry_probe_reset_in = "_arm_init"
-+entry_probe_reset_occurrence = 2
++entry_probe_reset_occurrence = 1
  panic_screen = false
  
  [payload.adt]

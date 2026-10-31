@@ -1,4 +1,4 @@
-name: lmi platform and console checkpoint
+name: lmi VM initialization checkpoint
 'on':
   push:
     branches:
@@ -140,9 +140,9 @@ jobs:
 
         p=tomllib.loads(Path(''lmipro/board.toml'').read_text())[''payload'']
 
-        assert p[''entry_probe_reset_after'']==''_PE_init_platform''
+        assert p[''entry_probe_reset_after'']==''_arm_vm_init''
 
-        assert p[''entry_probe_reset_in'']==''_arm_init'' and p[''entry_probe_reset_occurrence'']==2
+        assert p[''entry_probe_reset_in'']==''_arm_init'' and p[''entry_probe_reset_occurrence'']==1
 
         PY
 
@@ -216,7 +216,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-platform-console-checkpoint
+        name: lmi-vm-init-checkpoint
         path: 'output/boot.img
 
           output/boot.json

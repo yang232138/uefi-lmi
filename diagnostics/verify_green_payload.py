@@ -13,8 +13,8 @@ spec=importlib.util.spec_from_file_location('official_entry',script);m=importlib
 d=raw.read_bytes();assert len(d)==len(patched);m.load_segments(d);names=m.rebase(raw,d)
 word=lambda va:struct.unpack_from('<I',patched,m.file_offset(va))[0]
 symbols=m.kernel_symbols(raw)
-call,callee=m.find_call(d,symbols,'_arm_init','_PE_init_platform',2)
-assert call==0xfffffff0079b9eb8 and callee==0xfffffff00794e158
+call,callee=m.find_call(d,symbols,'_arm_init','_arm_vm_init',1)
+assert call==0xfffffff0079b9d50 and callee==0xfffffff0073ee9bc
 for site,stage in [(m.ENTRY_VA,1),(m.MMU_ENABLE_VA,2),(call,4)]:assert word(site)==m.branch(site,m.CAVES[stage])
 def target(va):
  value=word(va);assert value>>26==0b000101
@@ -30,7 +30,7 @@ assert bytes(normalized)==d,'Unexpected executable changes outside the official 
 # not merely the presence of a branch into the reset cave.
 replay=out/'kernel-replay.macho';shutil.copyfile(raw,replay)
 os.environ['UNIXNU_UEFI']=str(Path('uefi').resolve())
-subprocess.run(['python3',str(script),str(replay),'--reset-delay','6','--reset-after','_PE_init_platform','--in','_arm_init','--occurrence','2'],check=True)
+subprocess.run(['python3',str(script),str(replay),'--reset-delay','6','--reset-after','_arm_vm_init','--in','_arm_init','--occurrence','1'],check=True)
 assert replay.read_bytes()==patched
 replay.unlink()
 for file in ['boot.img']:
@@ -55,7 +55,7 @@ meta=dict(image_sha256=sha(out/'boot.img'),shim_bytes=shim,firmware_sha256=sha(f
 (out/'boot.json').write_text(json.dumps(meta,indent=2)+'\n')
 proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel_sha256=hashlib.sha256(patched).hexdigest(),
  fd_sha256=sha(fd),entry_hooks_verified=True,panic_hooks_verified=False,other_kernel_bytes_unchanged=True,
- official_probe_replay_identical=True,reset_delay_seconds=6,reset_checkpoint='after second PE_init_platform return in arm_init; VM, serial and console precede it',reset_call_va=hex(call),reset_original_callee=hex(callee),
+ official_probe_replay_identical=True,reset_delay_seconds=6,reset_checkpoint='after arm_vm_init returns in arm_init, before serial and console initialization',reset_call_va=hex(call),reset_original_callee=hex(callee),
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),
  firmware_source='identical photo-qualified FD720481eb preserved as a pinned compressed branch input',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')
