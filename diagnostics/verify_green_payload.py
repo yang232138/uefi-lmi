@@ -10,7 +10,7 @@ pmgr=json.loads((out/'kernel-build-proof.json').read_text())
 assert pmgr['kernel_sha256']==sha(raw) and pmgr['bsd_hook_verified']
 assert pmgr['pmgr_mode_compiled']==pmgr['dt_panic_mode_compiled']==1 and pmgr['pmgr_virtual_entries']==340
 assert pmgr['original_amfi_and_pmgr_executables_verified_unchanged']
-assert report['kernel_args']=='-v serial=3 boot-progress=2 sheng-pmgr=2 lmipro-ufs-handoff=1'
+assert report['kernel_args']=='-v serial=3 boot-progress=2 sheng-pmgr=2 lmipro-ufs-handoff=2'
 cfg=(root/'.config').read_text();assert 'CONFIG_XNU_SHENG_PMGR=y' in cfg
 assert 'CONFIG_XNU_NATIVE_UFS=y' not in cfg
 
