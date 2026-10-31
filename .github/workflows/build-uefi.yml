@@ -258,7 +258,7 @@ jobs:
           echo "static: $static"
           echo "system: $system"
           test -f "$static" && test -f "$system"
-          python3 overlay/scripts/build-trust-bundle.py \
+          python3 ../overlay/scripts/build-trust-bundle.py \
             --static "$static" \
             --system "$system" \
             --output trust.bundle \
