@@ -27,7 +27,7 @@ for name in ['_lmipro_pmgr_run','_sheng_pmgr_run','_sheng_pmgr_observation','__Z
 lo=names['_bsd_init'];hi=next(v for v in sorted(symbols) if v>lo)
 disassembly=subprocess.run([dump,'-d',f'--start-address={lo:#x}',f'--stop-address={hi:#x}',str(kernel)],
                            check=True,capture_output=True,text=True).stdout
-assert '<_lmipro_pmgr_run>' in disassembly
+assert '<_lmipro_pmgr_run>' in disassembly and '<_lmipro_ufs_handoff_probe>' in disassembly
 (a.out/'pmgr-hook-disassembly.txt').write_text(disassembly)
 build=tree/'build/sheng-platform-power'
 report=json.loads((build/'build-report.json').read_text())
@@ -53,4 +53,13 @@ proof=dict(unixnu_revision='ee472385743ebd16941ab14892dcb9d02e219d15',
            functional_power_backend=False,lifecycle_pass_observed=False,
            service_publication_observed=False,hardware_test='pending')
 (a.out/'kernel-build-proof.json').write_text(json.dumps(proof,indent=2)+'\n')
+
+observer=json.loads((tree/'build/lmipro-ufs-handoff/build-proof.json').read_text())
+assert observer['combined_archive_sha256']==archive_sha
+assert not observer['hardware_register_writes'] and not observer['storage_commands_submitted']
+assert not observer['clock_power_or_smmu_state_changed'] and observer['runtime_default']==0 and observer['test_mode']==1
+assert observer['source_sha256']==hashlib.sha256((tree/'kits/lmipro/LmiproUfsHandoff.cpp').read_bytes()).hexdigest()
+assert names['_lmipro_ufs_handoff_probe'] and names['_lmipro_ufs_handoff_observation']
+shutil.copyfile(tree/'build/lmipro-ufs-handoff/build-proof.json',a.out/'ufs-handoff-build-proof.json')
+
 print(json.dumps(proof,indent=2))

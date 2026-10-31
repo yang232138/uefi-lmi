@@ -1,4 +1,4 @@
-name: lmi restore qualified PMGR and continue without timed reset
+name: lmi documented read-only UFS handoff observation
 'on':
   push:
     branches:
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: ee472385743ebd16941ab14892dcb9d02e219d15
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 5693fb17d57bdcb9a7923d2d0a4e8252507fa48e
+      DEVICE_REF: 2b0632541ee354b0926782342c72915b411f15ec
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -163,6 +163,8 @@ jobs:
 
         PY
 
+        python3 unixnu/scripts/porting-record.py check --device lmipro
+
         '
     - name: Resolve the device configuration
       run: 'cd unixnu
@@ -245,7 +247,7 @@ jobs:
       if: steps.kernel-cache.outputs.cache-hit != 'true'
     - name: Verify actual PMGR link and original executable contracts
       run: 'python3 overlay/diagnostics/verify_lmipro_pmgr_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro
-        --out output --device-revision 5693fb17d57bdcb9a7923d2d0a4e8252507fa48e
+        --out output --device-revision 2b0632541ee354b0926782342c72915b411f15ec
 
         '
       if: steps.kernel-cache.outputs.cache-hit != 'true'
@@ -286,7 +288,7 @@ jobs:
         '
     - name: Preserve PMGR build evidence with the exact source kernel
       run: "python3 - <<'PY'\nfrom pathlib import Path\nimport shutil\np=Path('unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/kernel/pmgr-proof');p.mkdir(exist_ok=True)\n\
-        for f in ['kernel-build-proof.json','pmgr-archive-proof.json','reference-inputs.json','reference-amfi-pmgr-audit.json','final-amfi-pmgr-audit.json','pmgr-hook-disassembly.txt']:\n\
+        for f in ['kernel-build-proof.json','pmgr-archive-proof.json','reference-inputs.json','reference-amfi-pmgr-audit.json','final-amfi-pmgr-audit.json','pmgr-hook-disassembly.txt','ufs-handoff-build-proof.json']:\n\
         \    shutil.copyfile(Path('output')/f,p/f)\nPY\n"
       if: steps.kernel-cache.outputs.cache-hit != 'true'
     - name: Preserve the qualified source kernel before payload diagnostics
@@ -308,7 +310,7 @@ jobs:
 
         proof=json.loads((out/''kernel-build-proof.json'').read_text())
 
-        assert proof[''device_revision'']==''5693fb17d57bdcb9a7923d2d0a4e8252507fa48e''
+        assert proof[''device_revision'']==''2b0632541ee354b0926782342c72915b411f15ec''
 
         assert proof[''unixnu_revision'']==''ee472385743ebd16941ab14892dcb9d02e219d15''
 
@@ -349,7 +351,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-pmgr-restored-continue
+        name: lmi-ufs-readonly-handoff
         path: 'output/boot.img
 
           output/boot.json
@@ -388,6 +390,8 @@ jobs:
           output/final-amfi-pmgr-audit.json
 
           output/pmgr-hook-disassembly.txt
+
+          output/ufs-handoff-build-proof.json
 
           '
         if-no-files-found: warn

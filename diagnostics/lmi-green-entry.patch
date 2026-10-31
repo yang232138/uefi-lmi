@@ -1,6 +1,6 @@
 --- a/board.toml
 +++ b/board.toml
-@@ -84,6 +84,7 @@
+@@ -85,6 +85,7 @@
  BUILDID_STRING = "lmipro-research"
  
  [payload]
@@ -8,12 +8,12 @@
  volume = "LMIPROESP"
  # boot is 128 MiB on this handset (single slot; from fastboot getvar
  # partition-size:boot = 0x8000000). 64 MiB matches the 64 MiB the firmware
-@@ -92,7 +93,7 @@
+@@ -93,7 +94,7 @@
  size_mib = 64
  loader = "firmware"
  title = "Redmi K30 Pro"
 -kernel_args = ["-v", "serial=3"]
-+kernel_args = ["-v", "serial=3", "boot-progress=2", "sheng-pmgr=2"]
++kernel_args = ["-v", "serial=3", "boot-progress=2", "sheng-pmgr=2", "lmipro-ufs-handoff=1"]
  
  [payload.adt]
  # The platform seed is never stored in a repository: payload builds take it from

@@ -10,7 +10,7 @@ pmgr=json.loads((out/'kernel-build-proof.json').read_text())
 assert pmgr['kernel_sha256']==sha(raw) and pmgr['bsd_hook_verified']
 assert pmgr['pmgr_mode_compiled']==pmgr['dt_panic_mode_compiled']==1 and pmgr['pmgr_virtual_entries']==340
 assert pmgr['original_amfi_and_pmgr_executables_verified_unchanged']
-assert report['kernel_args']=='-v serial=3 boot-progress=2 sheng-pmgr=2'
+assert report['kernel_args']=='-v serial=3 boot-progress=2 sheng-pmgr=2 lmipro-ufs-handoff=1'
 cfg=(root/'.config').read_text();assert 'CONFIG_XNU_SHENG_PMGR=y' in cfg
 assert 'CONFIG_XNU_NATIVE_UFS=y' not in cfg
 
@@ -22,6 +22,17 @@ spec=importlib.util.spec_from_file_location('official_entry',script);m=importlib
 d=raw.read_bytes();assert len(d)==len(patched);m.load_segments(d);names=m.rebase(raw,d)
 word=lambda va:struct.unpack_from('<I',patched,m.file_offset(va))[0]
 symbols=m.kernel_symbols(raw)
+
+observer=json.loads((out/'ufs-handoff-build-proof.json').read_text())
+archive=json.loads((out/'pmgr-archive-proof.json').read_text())
+assert observer['combined_archive_sha256']==archive['archive_sha256']==pmgr['pmgr_archive_sha256']
+assert not observer['hardware_register_writes'] and not observer['storage_commands_submitted'] and not observer['clock_power_or_smmu_state_changed']
+pmgr_call,_=m.find_call(d,symbols,'_bsd_init','_lmipro_pmgr_run',1)
+observer_call,_=m.find_call(d,symbols,'_bsd_init','_lmipro_ufs_handoff_probe',1)
+assert observer_call>pmgr_call
+board=tomllib.loads(Path('lmipro/board.toml').read_text())
+assert board['payload']['adt']['root_match_volume_uuid']=='04769D26-2CA0-4825-B443-E2E5F88300F2'
+
 
 import sys
 sys.path.insert(0,str(Path('unixnu/scripts').resolve()))
@@ -86,7 +97,7 @@ assert z.unused_data==Path('overlay/DeviceTree/lmi.dtb').read_bytes()
 meta=dict(image_sha256=sha(out/'boot.img'),shim_bytes=shim,firmware_sha256=sha(fd),payload_sha256=sha(volume),header_version=version,page_bytes=page,report_source='parsed actual packed image and round-tripped exact inputs')
 (out/'boot.json').write_text(json.dumps(meta,indent=2)+'\n')
 proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel_sha256=hashlib.sha256(patched).hexdigest(),
- fd_sha256=sha(fd),dt_panic_region_enabled=True,fixed_bcm_panic_mapping_removed=True,pmgr_mode_compiled=1,pmgr_runtime_mode=2,pmgr_virtual_entries=340,pmgr_bsd_hook_verified=True,original_amfi_and_pmgr_executables_unchanged=True,functional_power_backend=False,entry_hooks_verified=True,panic_hooks_verified=True,other_kernel_bytes_unchanged=True,
+ fd_sha256=sha(fd),dt_panic_region_enabled=True,fixed_bcm_panic_mapping_removed=True,ufs_handoff_mode=1,hardware_register_writes=False,storage_commands_submitted=False,pmgr_mode_compiled=1,pmgr_runtime_mode=2,pmgr_virtual_entries=340,pmgr_bsd_hook_verified=True,original_amfi_and_pmgr_executables_unchanged=True,functional_power_backend=False,entry_hooks_verified=True,panic_hooks_verified=True,other_kernel_bytes_unchanged=True,
  official_probe_replay_identical=True,reset_delay_seconds=0,timed_reset=False,reset_checkpoint='none; continue normal execution and display actual panic',
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),
