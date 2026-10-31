@@ -86,8 +86,6 @@ READ_LOCK_STATUS   = TRUE
   # anything it placed outside the board memory map stays reachable.
   #
   INF lmiPkg/Drivers/LmiBootMemoryDxe/LmiBootMemoryDxe.inf
-  # Temporary: prints the GPT for reading the handset's partition LBAs.
-  INF lmiPkg/Drivers/GptDump/GptDump.inf
 
   #
   # UniXNU. These four must be in the FV before BdsDxe (which lives in DXE.inc)
