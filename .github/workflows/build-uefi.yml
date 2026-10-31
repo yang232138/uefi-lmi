@@ -155,10 +155,12 @@ jobs:
 
   payload:
     # The XNU kernel step drives Xcode, so it runs on Apple's runner; the firmware
-    # volume comes from the job above instead of being rebuilt here. The userdata
-    # job supplies the 32 MiB Data seed, but only when it ran: depending on it
-    # would skip this job whenever skip_userdata is set.
-    needs: firmware
+    # volume comes from the job above instead of being rebuilt here. It also waits
+    # for the userdata job because that job uploads the Data seed: starting earlier
+    # made the seed download fail. always() keeps this job running when userdata is
+    # skipped, and the seed stays optional.
+    needs: [firmware, userdata]
+    if: always() && needs.firmware.result == 'success'
     runs-on: macos-26
     timeout-minutes: 360
     env:
@@ -285,7 +287,9 @@ jobs:
           set -x
           cd unixnu
           # panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.
-          seed=$(find ../data-seed -name 'owner-data-32.cdr' 2>/dev/null | head -1)
+          # The seed artifact only exists when the userdata job ran and finished;
+          # a missing directory must not kill the step under set -e.
+          seed=$(find ../data-seed -name 'owner-data-32.cdr' 2>/dev/null | head -1 || true)
           if [ -n "$seed" ]; then
             echo "Data seed: $seed"
             ./unixnu build payload -D ../lmipro \
