@@ -1,8 +1,8 @@
-name: lmi documented read-only UFS handoff observation
+name: lmipro corrected local UIC query FIX1
 'on':
   push:
     branches:
-    - lmi-green-probe-20261031
+    - lmipro-uic-fix1-20261101
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: ee472385743ebd16941ab14892dcb9d02e219d15
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: c327d27dda33220f516a70932d036a4eb85e6da1
+      DEVICE_REF: 4d409719107d77be280d0a2a72caf29494fef241
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -51,6 +51,10 @@ jobs:
         git -C lmipro checkout -q FETCH_HEAD
 
         '
+    - name: Test the exact UIC command core with fake MMIO
+      run: |
+        c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_uic.cpp -o /tmp/test-lmipro-uic
+        /tmp/test-lmipro-uic
     - uses: actions/setup-python@v5
       with:
         python-version: '3.13'
@@ -81,7 +85,7 @@ jobs:
 
         assert len(b)==0x300000
 
-        assert hashlib.sha256(b).hexdigest()==''f95578af73b83c818ab07dc2210e0a435cbb4c9a9a962de3405d5da05921624b''
+        assert hashlib.sha256(b).hexdigest()==''720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6''
 
         (p/''SILICIUM_UEFI.fd'').write_bytes(b)
 
@@ -125,7 +129,7 @@ jobs:
 
         assert fd.stat().st_size==0x300000
 
-        assert hashlib.sha256(fd.read_bytes()).hexdigest()==''f95578af73b83c818ab07dc2210e0a435cbb4c9a9a962de3405d5da05921624b''
+        assert hashlib.sha256(fd.read_bytes()).hexdigest()==''720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6''
 
         b=tomllib.loads(Path(''lmipro/board.toml'').read_text())
 
@@ -247,7 +251,7 @@ jobs:
       if: steps.kernel-cache.outputs.cache-hit != 'true'
     - name: Verify actual PMGR link and original executable contracts
       run: 'python3 overlay/diagnostics/verify_lmipro_pmgr_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro
-        --out output --device-revision c327d27dda33220f516a70932d036a4eb85e6da1
+        --out output --device-revision 4d409719107d77be280d0a2a72caf29494fef241
 
         '
       if: steps.kernel-cache.outputs.cache-hit != 'true'
@@ -310,7 +314,7 @@ jobs:
 
         proof=json.loads((out/''kernel-build-proof.json'').read_text())
 
-        assert proof[''device_revision'']==''c327d27dda33220f516a70932d036a4eb85e6da1''
+        assert proof[''device_revision'']==''4d409719107d77be280d0a2a72caf29494fef241''
 
         assert proof[''unixnu_revision'']==''ee472385743ebd16941ab14892dcb9d02e219d15''
 
