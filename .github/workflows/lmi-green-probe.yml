@@ -81,7 +81,7 @@ jobs:
 
         assert len(b)==0x300000
 
-        assert hashlib.sha256(b).hexdigest()==''720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6''
+        assert hashlib.sha256(b).hexdigest()==''0cc5c231d650b79c20313566744e81a91f09ba06244696e5b6545a11da41a377''
 
         (p/''SILICIUM_UEFI.fd'').write_bytes(b)
 
@@ -125,7 +125,7 @@ jobs:
 
         assert fd.stat().st_size==0x300000
 
-        assert hashlib.sha256(fd.read_bytes()).hexdigest()==''720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6''
+        assert hashlib.sha256(fd.read_bytes()).hexdigest()==''0cc5c231d650b79c20313566744e81a91f09ba06244696e5b6545a11da41a377''
 
         b=tomllib.loads(Path(''lmipro/board.toml'').read_text())
 
