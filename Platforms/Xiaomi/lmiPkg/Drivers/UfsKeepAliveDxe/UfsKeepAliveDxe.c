@@ -1,16 +1,14 @@
 /** @file
-  Keep the UFS device awake across ExitBootServices.
+  Keep the UFS device awake across ExitBootServices and stage the GPT head.
 
-  The vendor UFSDxe leaves the device in a low-power state and XNU has no way
-  to bring the UniPro link back up on this board (UIC DME_HIBERNATE_EXIT and
-  DME_LINK_STARTUP both leave the active lane count at zero). This driver:
+  Two jobs, both read-only with respect to the device:
 
-    1. reads one block through the vendor BlockIo protocol, which keeps the
-       device in its ACTIVE power state;
-    2. clears the UFSHCI auto-hibernate idle timer so the device does not drop
-       back into hibernate before the OS takes the controller over.
-
-  It never submits a SCSI command of its own and never writes to storage.
+    1. read the first block through the vendor BlockIo protocol so the device
+       stays in its ACTIVE power state, then clear the UFSHCI auto-hibernate
+       idle timer;
+    2. copy that first block (MBR + GPT header + primary entries) into the tail
+       of the payload ramdisk window, tagged with a signature, so the kernel can
+       prove the firmware really can read this UFS device.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
@@ -25,6 +23,16 @@
 #define UFS_HC_BASE              0x01D84000ULL
 #define UFS_REG_AUTO_HIBERNATE   0x18
 #define UFS_REG_INTERRUPT_ENABLE 0x24
+
+//
+// Tail of the lmiPkg "Payload Ramdisk" reservation (0x93200000 + 0x05600000),
+// past the 64 MiB payload image the device tree declares. The kernel does not
+// own this window, so a staged copy survives into early kernel init.
+//
+#define UFS_BLOB_BASE            0x097200000ULL
+#define UFS_BLOB_MAGIC           0x42534655U   // 'UFSB'
+#define UFS_BLOB_VERSION         1U
+#define UFS_BLOB_BYTES           4096U
 
 STATIC
 volatile UINT32 *
@@ -67,6 +75,7 @@ UfsKeepAliveEntry (
   for (Index = 0; Index < Count; Index++) {
     EFI_BLOCK_IO_PROTOCOL  *BlockIo;
     UINT8                  *Buffer;
+    UINT8                  *Blob;
 
     BlockIo = NULL;
     Status  = gBS->HandleProtocol (
@@ -77,7 +86,12 @@ UfsKeepAliveEntry (
     if (EFI_ERROR (Status) || (BlockIo == NULL) || (BlockIo->Media == NULL)) {
       continue;
     }
-    if (!BlockIo->Media->MediaPresent || (BlockIo->Media->BlockSize == 0)) {
+
+    //
+    // UFS reports 4096-byte logical blocks; this also skips the 512-byte
+    // emulated FAT volume that carries the payload.
+    //
+    if (!BlockIo->Media->MediaPresent || (BlockIo->Media->BlockSize != 4096)) {
       continue;
     }
 
@@ -92,24 +106,38 @@ UfsKeepAliveEntry (
                         BlockIo->Media->BlockSize,
                         Buffer
                         );
-    FreePool (Buffer);
     DEBUG ((
       DEBUG_INFO,
-      "UfsKeepAlive: BlockIo[%u] LBA0 -> %r\n",
+      "UfsKeepAlive: UFS BlockIo[%u] block0 -> %r\n",
       (UINT32)Index,
       Status
       ));
-    if (!EFI_ERROR (Status)) {
-      ReadOk = TRUE;
+    if (EFI_ERROR (Status)) {
+      FreePool (Buffer);
+      continue;
     }
+
+    Blob = (UINT8 *)(UINTN)UFS_BLOB_BASE;
+    Blob[0] = (UINT8)(UFS_BLOB_MAGIC & 0xFF);
+    Blob[1] = (UINT8)((UFS_BLOB_MAGIC >> 8) & 0xFF);
+    Blob[2] = (UINT8)((UFS_BLOB_MAGIC >> 16) & 0xFF);
+    Blob[3] = (UINT8)((UFS_BLOB_MAGIC >> 24) & 0xFF);
+    Blob[4] = (UINT8)(UFS_BLOB_VERSION & 0xFF);
+    Blob[5] = (UINT8)((UFS_BLOB_VERSION >> 8) & 0xFF);
+    Blob[6] = (UINT8)((UFS_BLOB_VERSION >> 16) & 0xFF);
+    Blob[7] = (UINT8)((UFS_BLOB_VERSION >> 24) & 0xFF);
+    CopyMem (Blob + 8, Buffer, UFS_BLOB_BYTES);
+    FreePool (Buffer);
+    ReadOk = TRUE;
+    break;
   }
   FreePool (Handles);
 
-  *UfsReg (UFS_REG_INTERRUPT_ENABLE)   = 0;
-  *UfsReg (UFS_REG_AUTO_HIBERNATE)     = 0;
+  *UfsReg (UFS_REG_INTERRUPT_ENABLE) = 0;
+  *UfsReg (UFS_REG_AUTO_HIBERNATE)   = 0;
   DEBUG ((
     DEBUG_INFO,
-    "UfsKeepAlive: read=%u auto-hibernate timer cleared\n",
+    "UfsKeepAlive: staged=%u auto-hibernate timer cleared\n",
     ReadOk ? 1U : 0U
     ));
 
