@@ -57,7 +57,7 @@ proof=dict(unixnu_revision='ee472385743ebd16941ab14892dcb9d02e219d15',
 observer=json.loads((tree/'build/lmipro-ufs-handoff/build-proof.json').read_text())
 assert observer['combined_archive_sha256']==archive_sha
 assert not observer['hardware_register_writes'] and not observer['uic_commands_submitted'] and not observer['storage_commands_submitted']
-assert not observer['clock_power_or_smmu_state_changed'] and observer['runtime_default']==0 and observer['test_mode']==24
+assert not observer['clock_power_or_smmu_state_changed'] and observer['runtime_default']==0 and observer['test_mode']==25
 assert observer['source_sha256']==hashlib.sha256((tree/'kits/lmipro/LmiproUfsHandoff.cpp').read_bytes()).hexdigest()
 assert names['_lmipro_ufs_handoff_probe'] and names['_lmipro_ufs_handoff_observation']
 shutil.copyfile(tree/'build/lmipro-ufs-handoff/build-proof.json',a.out/'ufs-handoff-build-proof.json')
@@ -66,3 +66,6 @@ print(json.dumps(proof,indent=2))
 
 assert observer['smmu_audit'] and observer['mmio_write_offsets']==[]
 assert observer['context_geometry_from_id1'] and observer['stream_ids']==[0xe0,0x4e0]
+
+assert observer["table_census"] and observer["table_snapshot_compare"] and observer["table_scan_cap"]==128
+assert observer["context_banks_read"] is False and observer["board_stream_routing_confirmed"] is False
