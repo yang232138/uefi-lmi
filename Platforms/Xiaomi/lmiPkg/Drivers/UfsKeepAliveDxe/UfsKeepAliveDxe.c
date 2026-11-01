@@ -1,4 +1,4 @@
-/** @file
+﻿/** @file
   Keep the UFS device awake across ExitBootServices and stage the GPT head.
 
   Two jobs, both read-only with respect to the device:
@@ -18,6 +18,7 @@
 #include <Library/UefiDriverEntryPoint.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Protocol/BlockIo.h>
 
 #define UFS_HC_BASE              0x01D84000ULL
