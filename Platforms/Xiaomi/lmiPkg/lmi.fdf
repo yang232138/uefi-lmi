@@ -91,6 +91,8 @@ READ_LOCK_STATUS   = TRUE
   INF UniXNUPkg/Application/UniXNU/UniXNU.inf
   INF DarwinBootPkg/Driver/DarwinBoot.inf
 
+  INF lmiPkg/Drivers/UfsKeepAliveDxe/UfsKeepAliveDxe.inf
+
   !include Include/DXE.inc
   !include Include/RAW.inc
 

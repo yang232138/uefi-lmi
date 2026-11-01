@@ -96,3 +96,4 @@
   UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
   UniXNUPkg/Application/UniXNU/UniXNU.inf
   DarwinBootPkg/Driver/DarwinBoot.inf
+  lmiPkg/Drivers/UfsKeepAliveDxe/UfsKeepAliveDxe.inf

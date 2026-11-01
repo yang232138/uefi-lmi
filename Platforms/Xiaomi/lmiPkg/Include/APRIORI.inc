@@ -41,6 +41,7 @@ APRIORI DXE {
 
   INF Binaries/lmi/QcomPkg/Drivers/SdccDxe/SdccDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/UFSDxe/UFSDxe.inf
+  INF lmiPkg/Drivers/UfsKeepAliveDxe/UfsKeepAliveDxe.inf
 
   INF FatPkg/EnhancedFatDxe/Fat.inf
 
