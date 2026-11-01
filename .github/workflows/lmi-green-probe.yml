@@ -155,7 +155,7 @@ jobs:
 
         b=tomllib.loads(Path(''lmipro/board.toml'').read_text())
 
-        assert ''lmipro-ufs-handoff=24'' in b[''payload''][''kernel_args'']
+        assert ''lmipro-ufs-handoff=25'' in b[''payload''][''kernel_args'']
 
         s=Path(''lmipro/configs/lmipro_defconfig'').read_text()
 
