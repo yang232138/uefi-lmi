@@ -29,7 +29,7 @@ assert observer['combined_archive_sha256']==archive['archive_sha256']==pmgr['pmg
 assert not observer['hardware_register_writes'] and not observer['storage_commands_submitted'] and not observer['clock_power_or_smmu_state_changed']
 pmgr_call,_=m.find_call(d,symbols,'_bsd_init','_lmipro_pmgr_run',1)
 observer_call,_=m.find_call(d,symbols,'_bsd_init','_lmipro_ufs_handoff_probe',1)
-assert observer_call>pmgr_call
+assert observer_call<pmgr_call
 board=tomllib.loads(Path('lmipro/board.toml').read_text())
 assert board['payload']['adt']['root_match_volume_uuid']=='04769D26-2CA0-4825-B443-E2E5F88300F2'
 
