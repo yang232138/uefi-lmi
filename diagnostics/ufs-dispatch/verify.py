@@ -3,7 +3,7 @@ from pathlib import Path
 import argparse,hashlib,json,struct,tomllib,zlib
 HISTORICAL_FD_SHA='720481eb15e6cb3a6552c717ee6e912649a9c81eef18c95ab00dff7627530ee6'
 SHIM_SHA='fca5c1e7fd9b455c27c4039a66c27792c0f475a515b0e4f3bf0a088fcf256195'
-DTB_SHA='bb52bbbf97601450dbdca9a020145ebe7ea816a94418155919c139ba27d39529'
+DTB_SHA='38027bacdd3535776d83801b53e8eb5e41f2facb9e7d2fe72b412b26b3f7f033'
 def sha(b): return hashlib.sha256(b).hexdigest()
 def pe(b):
     assert b[:2]==b'MZ';p=struct.unpack_from('<I',b,60)[0]

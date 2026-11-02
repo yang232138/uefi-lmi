@@ -125,6 +125,7 @@ jobs:
 
       - name: Build result viewer and pack independently checked image
         run: |
+          python3 overlay/diagnostics/ufs-dispatch/patch_dtb.py --input overlay/DeviceTree/lmi.dtb --output overlay/DeviceTree/lmi.dtb
           python3 -m venv verify-tools
           verify-tools/bin/pip install uefi_firmware==1.16
           verify-tools/bin/python overlay/diagnostics/ufs-dispatch/package.py

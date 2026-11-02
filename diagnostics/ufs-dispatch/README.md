@@ -11,6 +11,11 @@ Overflow is counted, never overwrites earlier bytes. Empty logs are inconclusive
 This observer does not fix the UFS driver and does not qualify IOMMU/DMA or disks.
 Original vendor UFSDxe bytes remain identical. No protocol or success is faked.
 
+The follow-up image applies a narrow board-DTB fix: it enables `ufshc_card` and
+adds SM8250 UFS stream IDs `0xe0` and `0x4e0` under `apps_smmu`. It is still a
+temporary qualification image; a successful attach does not yet prove a block
+read or root mount.
+
 Diagnostic build only. The dispatcher retains its normal discovery, scheduling,
 load and entry calls. Fixed-size DXE Core memory records only target GUID
 0d35cd8e-97ea-4f9a-96af-0f0d89f76567, plus publication/dispatcher-end markers.
