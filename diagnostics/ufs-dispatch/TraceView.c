@@ -5,10 +5,13 @@
 #include "UfsDispatchTrace.h"
 #include "UfsSerialLog.h"
 #include "LogText.inc"
+#include "IortProbe.h"
 
 static EFI_SYSTEM_TABLE *ST;
 static EFI_GUID TraceGuid = LMI_TRACE_GUID;
 static EFI_GUID LogGuid = LMI_LOG_GUID;
+static EFI_GUID IortGuid = LMI_IORT_PROBE_GUID;
+static const LMI_IORT_PROBE *Iort;
 static char Line[160];
 static UINTN Used;
 static VOID append(const char *s) {while(*s && Used+1<sizeof(Line)) Line[Used++]=*s++;Line[Used]=0;}
@@ -63,7 +66,28 @@ static VOID trace_page(const LMI_TRACE_TABLE *t,UINTN p) {
   print("N/P or arrows: pages. S: first. Esc: return.");
   print("No automatic reboot. Photograph all pages.");
 }
+static VOID iort_page(VOID) {
+  if(ST->ConOut) ST->ConOut->ClearScreen(ST->ConOut);
+  print("LMIPRO IORT READONLY PROBE v1");
+  print("No DT writes. Named RAM regions only, max 1 MiB each.");
+  if(!Iort) {print("Probe table missing or invalid. No inference possible.");return;}
+  for(UINTN i=0;i<LMI_IORT_PROBE_REGIONS;i++) {
+    const LMI_IORT_REGION *r=&Iort->Regions[i];
+    begin(r->Name);append(" lookup=0x");number(r->LookupStatus,16);print(Line);
+    begin(" base=0x");number(r->Address,16);append(" size=0x");number(r->Length,16);print(Line);
+    begin(" scanned=0x");number(r->Scanned,16);append(" fdt=");number(r->ValidFdt,10);append(" skip=");number(r->Skipped,10);print(Line);
+    begin(" iort=0x");number((UINT32)r->IortOffset,16);append(" ufs=0x");number((UINT32)r->UfsOffset,16);print(Line);
+    begin(" CacheCoherency len=0x");number((UINT32)r->CacheLength,16);append(" value=0x");number(r->CacheValue,16);print(Line);
+  }
+  print("lookup 800000000000000e = named region absent");
+  print("iort/ufs ffffffff = absent or no valid DT examined");
+  for(UINTN i=0;i<Iort->NodeCount;i++) {begin("IORT child: ");append(Iort->NodeNames[i]);print(Line);}
+  begin("additional IORT children=");number(Iort->NodesDropped,10);print(Line);
+  print("N: UFS serial log, then dispatcher records.");
+}
 static VOID page(const LMI_TRACE_TABLE *t,const LMI_SERIAL_LOG *log,UINTN p,UINTN lp) {
+  if(p==0) {iort_page();return;}
+  p--;
   if(p>=lp) {trace_page(t,p-lp);return;}
   if(ST->ConOut) ST->ConOut->ClearScreen(ST->ConOut);
   print("LMIPRO UFS ORIGINAL SERIAL LOG v1");
@@ -103,6 +127,7 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
   const LMI_TRACE_TABLE *trace=NULL;
   const LMI_SERIAL_LOG *log=NULL;
   for(UINTN i=0;i<ST->NumberOfTableEntries;i++) {
+    if(equal(&ST->ConfigurationTable[i].VendorGuid,&IortGuid)) Iort=ST->ConfigurationTable[i].VendorTable;
     if(equal(&ST->ConfigurationTable[i].VendorGuid,&TraceGuid)) {
       trace=ST->ConfigurationTable[i].VendorTable;
     }
@@ -114,7 +139,9 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
      trace->Count>trace->Capacity || !equal(&trace->Target,&target))) trace=NULL;
   if(log && (log->Signature!=LMI_LOG_SIGNATURE || log->Version!=1 || log->Size!=sizeof(*log) ||
       log->Capacity!=LMI_LOG_CAPACITY || log->Count>log->Capacity || log->Enabled)) log=NULL;
-  UINTN lp=LogPages(log),total=lp+(trace?(trace->Count+11)/12:1);
+  if(Iort && (Iort->Signature!=LMI_IORT_PROBE_SIGNATURE || Iort->Version!=1 ||
+      Iort->Size!=sizeof(*Iort) || Iort->ReadOnly!=1 || Iort->NodeCount>LMI_IORT_PROBE_NODES)) Iort=NULL;
+  UINTN lp=LogPages(log),total=1+lp+(trace?(trace->Count+11)/12:1);
   UINTN current=0;page(trace,log,current,lp);
   if(!ST->ConIn) return EFI_UNSUPPORTED;
   for(;;) {

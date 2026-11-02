@@ -57,7 +57,7 @@ report.update(source_commit=os.environ['GITHUB_SHA'],build_run=os.environ['GITHU
  serial_capture_window='original UFS CoreStartImage only',serial_forwarding_preserved=True,
  sec_sha256=sha(sec[0].read_bytes()))
 (out/'verification.json').write_text(json.dumps(report,indent=2)+'\n')
-for name in ['README.md','unixnu.toml','verify.py','UfsDispatchTrace.h','DispatcherTrace.inc','TraceView.c','instrument.py','test_trace.c','UfsSerialLog.h','SerialCapture.inc','SerialBridge.inc','LogText.inc','patch_dtb.py']:
+for name in ['README.md','unixnu.toml','verify.py','UfsDispatchTrace.h','DispatcherTrace.inc','TraceView.c','instrument.py','test_trace.c','UfsSerialLog.h','SerialCapture.inc','SerialBridge.inc','LogText.inc','patch_dtb.py','IortProbe.h','IortProbe.c']:
     shutil.copyfile(src/name,out/name)
 (out/'source-sha256.json').write_text(json.dumps({p.name:sha(p.read_bytes()) for p in src.iterdir() if p.is_file()},indent=2)+'\n')
 payload.unlink();(out/'TraceView.obj').unlink()

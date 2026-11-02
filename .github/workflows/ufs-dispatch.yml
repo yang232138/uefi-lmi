@@ -1,7 +1,7 @@
-name: LMIPRO UFS IORT coherency fix
+name: LMIPRO UFS IORT read-only diagnosis
 on:
   push:
-    branches: [test/lmipro-ufs-iort-20261103]
+    branches: [test/lmipro-ufs-iort-ro-20261103]
   workflow_dispatch:
 permissions:
   contents: read
@@ -73,6 +73,11 @@ jobs:
           test -f uefi/Binaries/lmi/QcomPkg/Drivers/ButtonsDxe/ButtonsDxe.inf
           echo "vendor DXE files: $(find uefi/Binaries/lmi -type f | wc -l)"
 
+      - name: Install bounded read-only IORT observer
+        run: |
+          cp overlay/diagnostics/ufs-dispatch/IortProbe.c uefi/Silicon/Qualcomm/QcomPkg/Drivers/IortDtDxe/IortDtDxe.c
+          cp overlay/diagnostics/ufs-dispatch/IortProbe.h uefi/Silicon/Qualcomm/QcomPkg/Drivers/IortDtDxe/IortProbe.h
+
       - name: Adapt the pinned upstreams
         # bootimg's image_size check, and the SEC entry-argument handoff that
         # Project-Silicium v4.0 drops: without it the DAEE82E6 HOB is never
@@ -135,7 +140,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lmipro-ufs-iort-coherency-fix
+          name: lmipro-ufs-iort-readonly
           retention-days: 7
           if-no-files-found: warn
           path: |

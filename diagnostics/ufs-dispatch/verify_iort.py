@@ -14,7 +14,7 @@ HAL = '9a00771f-36d4-4dd5-8916-c48ed9b16b86'
 UFS = '0d35cd8e-97ea-4f9a-96af-0f0d89f76567'
 APRIORI = 'fc510ee7-ffdc-11d4-bd41-0080c73c8881'
 UFS_SHA = 'ffeaed467f8251b7e30a45075da84a1c563e2bac7dc4be0f79f0ed49a88b8dc9'
-OLD_BOOT = 'c4824ed5539c276454ac510f6c4964fb6bcfcbe64141f3697d49ad2eda80a28d'
+OLD_BOOT = '0f1666bbac600e352843799de62bb6ddcc49f86d6a6601ede9536299f68d0c96'
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -53,13 +53,14 @@ def check(folder):
     assert all(order.count(g) == 1 for g in [IORT, HAL, UFS])
     assert order.index(IORT) < order.index(HAL) < order.index(UFS), 'Invalid DXE APRIORI order'
     assert b'/soc/iort/NAMEDNODE_UFS_95MEM' in modules[IORT][0]
+    assert b'Boot FDT' in modules[IORT][0]
     boot_sha = sha((folder / 'boot.img').read_bytes())
     assert boot_sha != OLD_BOOT, 'Old image substituted'
     return dict(iort_in_fv=True, iort_sha256=sha(modules[IORT][0]),
                 iort_apriori_index=order.index(IORT), hal_apriori_index=order.index(HAL),
                 ufs_apriori_index=order.index(UFS), apriori_order_verified=True,
                 vendor_ufs_sha256=UFS_SHA, boot_sha256=boot_sha, differs_from_previous_boot=True,
-                runtime_iort_node_qualified=False, iommu_attach_qualified=False)
+                read_only_iort_observer=True, runtime_iort_node_qualified=False, iommu_attach_qualified=False)
 
 if __name__ == '__main__':
     folder = Path(sys.argv[1])
