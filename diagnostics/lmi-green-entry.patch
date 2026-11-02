@@ -13,7 +13,7 @@
  loader = "firmware"
  title = "Redmi K30 Pro"
 -kernel_args = ["-v", "serial=3"]
-+kernel_args = ["-v", "serial=3", "boot-progress=2", "lmipro-ufs-handoff=26"]
++kernel_args = ["-v", "serial=3", "boot-progress=2", "lmipro-ufs-handoff=27"]
  
  [payload.adt]
  # The platform seed is never stored in a repository: payload builds take it from
