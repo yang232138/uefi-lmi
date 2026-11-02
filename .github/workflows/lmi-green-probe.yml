@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: ee472385743ebd16941ab14892dcb9d02e219d15
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 7c8f0c8cd0b6522a80973c9a3afc5dfaf091e63e
+      DEVICE_REF: 4be440c6a6828e20697c5499582aa25807911fb8
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -247,7 +247,7 @@ jobs:
       if: steps.kernel-cache.outputs.cache-hit != 'true'
     - name: Verify actual PMGR link and original executable contracts
       run: 'python3 overlay/diagnostics/verify_lmipro_pmgr_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro
-        --out output --device-revision 7c8f0c8cd0b6522a80973c9a3afc5dfaf091e63e
+        --out output --device-revision 4be440c6a6828e20697c5499582aa25807911fb8
 
         '
       if: steps.kernel-cache.outputs.cache-hit != 'true'
@@ -310,7 +310,7 @@ jobs:
 
         proof=json.loads((out/''kernel-build-proof.json'').read_text())
 
-        assert proof[''device_revision'']==''7c8f0c8cd0b6522a80973c9a3afc5dfaf091e63e''
+        assert proof[''device_revision'']==''4be440c6a6828e20697c5499582aa25807911fb8''
 
         assert proof[''unixnu_revision'']==''ee472385743ebd16941ab14892dcb9d02e219d15''
 
