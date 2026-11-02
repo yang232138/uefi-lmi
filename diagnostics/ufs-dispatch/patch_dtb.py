@@ -18,6 +18,7 @@ def main():
         subprocess.run([dtc,'-I','dtb','-O','dts','-o',str(src),str(a.input)],check=True,stdout=subprocess.DEVNULL)
         s=src.read_text()
         marker='ufshc_card: ufshc_card@1da4000 {'
+        if marker not in s: marker='ufshc_card@1da4000 {'
         start=s.find(marker);assert start>=0,'ufshc_card node missing'
         brace=s.find('{',start);depth=0;end=None
         for i in range(brace,len(s)):
@@ -29,7 +30,7 @@ def main():
         node=s[start:end]
         assert node.count('status = "disabled";')==1
         assert 'iommus =' not in node
-        node=node.replace('status = "disabled";','iommus = <&apps_smmu 0x0e0 0>, <&apps_smmu 0x4e0 0>;\n\t\t\tstatus = "okay";',1)
+        node=node.replace('status = "disabled";','iommus = <0x47 0x0e0 0>, <0x47 0x4e0 0>;\n\t\t\tstatus = "okay";',1)
         s=s[:start]+node+s[end:]
         src.write_text(s)
         subprocess.run([dtc,'-I','dts','-O','dtb','-o',str(out),str(src)],check=True,stdout=subprocess.DEVNULL)
