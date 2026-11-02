@@ -1,4 +1,15 @@
-# Original UFS dispatcher observer
+# Original UFS entry serial log and dispatcher observer
+
+Adds a bounded 32 KiB RAM copy at the source ShimLoader SerialPort Lib write
+interface. The original serial write receives identical arguments exactly once
+and its return value is preserved. Capture is enabled only around the original
+target CoreStartImage; no extra entry, hardware or disk calls are made.
+DXE Core discovers our named extension through the existing documented Shim HOB
+and library loader, then publishes a separate configuration table for the viewer.
+The viewer starts with log pages and then shows the existing dispatcher trace.
+Overflow is counted, never overwrites earlier bytes. Empty logs are inconclusive.
+This observer does not fix the UFS driver and does not qualify IOMMU/DMA or disks.
+Original vendor UFSDxe bytes remain identical. No protocol or success is faked.
 
 Diagnostic build only. The dispatcher retains its normal discovery, scheduling,
 load and entry calls. Fixed-size DXE Core memory records only target GUID

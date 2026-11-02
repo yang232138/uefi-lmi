@@ -86,6 +86,7 @@ def verify(folder, source=None):
     assert config['entry'][0]['path']=='Payloads/TraceView.efi'
     if source: assert cfg==(Path(source)/'unixnu.toml').read_bytes()
     assert b'LMIPRO ORIGINAL UFS DISPATCH v1' in app
+    assert b'LMIPRO UFS ORIGINAL SERIAL LOG v1' in app
     return dict(boot_sha256=sha(b),boot_bytes=len(b),fd_sha256=sha(fd),fd_bytes=len(fd),
         shim_sha256=sha(shim),dtb_sha256=sha(dtb),payload_sha256=sha(payload),
         efi=pe(app),configuration=config,hardware_tested=False,contains_xnu=False,contains_os=False)

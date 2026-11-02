@@ -3,9 +3,12 @@
  */
 #include <Uefi.h>
 #include "UfsDispatchTrace.h"
+#include "UfsSerialLog.h"
+#include "LogText.inc"
 
 static EFI_SYSTEM_TABLE *ST;
 static EFI_GUID TraceGuid = LMI_TRACE_GUID;
+static EFI_GUID LogGuid = LMI_LOG_GUID;
 static char Line[160];
 static UINTN Used;
 static VOID append(const char *s) {while(*s && Used+1<sizeof(Line)) Line[Used++]=*s++;Line[Used]=0;}
@@ -41,7 +44,7 @@ static const char *stage(UINT64 s) {
   default:return "unknown";
   }
 }
-static VOID page(const LMI_TRACE_TABLE *t,UINTN p) {
+static VOID trace_page(const LMI_TRACE_TABLE *t,UINTN p) {
   if(ST->ConOut) ST->ConOut->ClearScreen(ST->ConOut);
   print("LMIPRO ORIGINAL UFS DISPATCH v1");
   print("Observer only; no extra UFS entry or disk call.");
@@ -60,6 +63,29 @@ static VOID page(const LMI_TRACE_TABLE *t,UINTN p) {
   print("N/P or arrows: pages. S: first. Esc: return.");
   print("No automatic reboot. Photograph all pages.");
 }
+static VOID page(const LMI_TRACE_TABLE *t,const LMI_SERIAL_LOG *log,UINTN p,UINTN lp) {
+  if(p>=lp) {trace_page(t,p-lp);return;}
+  if(ST->ConOut) ST->ConOut->ClearScreen(ST->ConOut);
+  print("LMIPRO UFS ORIGINAL SERIAL LOG v1");
+  print("Captured only during the original UFS entry.");
+  if(!log) {
+    print("Log buffer missing or invalid. No failure inferred.");
+  } else {
+    begin("bytes=");number(log->Count,10);append(" dropped=");number(log->Dropped,10);
+    append(" calls=");number(log->Calls,10);print(Line);
+    begin("log page ");number(p+1,10);append(" / ");number(lp,10);print(Line);
+    if(!log->Count) print("No serial text captured. This is inconclusive.");
+    UINTN at=0,row=0;char out[LMI_LOG_COLUMNS+1];
+    while(at<log->Count && row<(p+1)*LMI_LOG_ROWS) {
+      at=LogLine(log,at,out);
+      if(row>=p*LMI_LOG_ROWS) print(out);
+      row++;
+    }
+  }
+  print("N/P or arrows: log pages, then dispatch records.");
+  print("S: first page. Esc: return. Photograph all pages.");
+  print("Empty logs do not prove successful initialization.");
+}
 EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
   (void)image;ST=table;
   if(!ST || !ST->BootServices) return EFI_INVALID_PARAMETER;
@@ -75,16 +101,21 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
     ST->ConOut->EnableCursor(ST->ConOut,FALSE);
   }
   const LMI_TRACE_TABLE *trace=NULL;
+  const LMI_SERIAL_LOG *log=NULL;
   for(UINTN i=0;i<ST->NumberOfTableEntries;i++) {
     if(equal(&ST->ConfigurationTable[i].VendorGuid,&TraceGuid)) {
-      trace=ST->ConfigurationTable[i].VendorTable;break;
+      trace=ST->ConfigurationTable[i].VendorTable;
     }
+    if(equal(&ST->ConfigurationTable[i].VendorGuid,&LogGuid)) log=ST->ConfigurationTable[i].VendorTable;
   }
   EFI_GUID target=LMI_UFS_GUID;
   if(trace && (trace->Signature!=LMI_TRACE_SIGNATURE || trace->Version!=LMI_TRACE_VERSION ||
      trace->Size!=sizeof(*trace) || trace->Capacity!=LMI_TRACE_CAPACITY ||
      trace->Count>trace->Capacity || !equal(&trace->Target,&target))) trace=NULL;
-  UINTN current=0;page(trace,current);
+  if(log && (log->Signature!=LMI_LOG_SIGNATURE || log->Version!=1 || log->Size!=sizeof(*log) ||
+      log->Capacity!=LMI_LOG_CAPACITY || log->Count>log->Capacity || log->Enabled)) log=NULL;
+  UINTN lp=LogPages(log),total=lp+(trace?(trace->Count+11)/12:1);
+  UINTN current=0;page(trace,log,current,lp);
   if(!ST->ConIn) return EFI_UNSUPPORTED;
   for(;;) {
     UINTN index=0;
@@ -94,10 +125,10 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
     if(EFI_ERROR(ST->ConIn->ReadKeyStroke(ST->ConIn,&key))) continue;
     if(key.ScanCode==SCAN_ESC) return EFI_SUCCESS;
     if(key.UnicodeChar==L'n'||key.UnicodeChar==L'N'||key.ScanCode==SCAN_DOWN||key.ScanCode==SCAN_RIGHT) {
-      if(trace && (current+1)*12<trace->Count) current++;
+      if(current+1<total) current++;
     } else if(key.UnicodeChar==L'p'||key.UnicodeChar==L'P'||key.ScanCode==SCAN_UP||key.ScanCode==SCAN_LEFT) {
       if(current) current--;
     } else if(key.UnicodeChar==L's'||key.UnicodeChar==L'S') current=0;
-    page(trace,current);
+    page(trace,log,current,lp);
   }
 }

@@ -31,6 +31,10 @@ for f in walk(volume):
 ufs=modules['0d35cd8e-97ea-4f9a-96af-0f0d89f76567'];assert len(ufs)==1 and ufs[0]==vendor
 core=modules['d6a2cb7f-6a18-4e2f-b43b-9920a733700a'];assert len(core)==1
 assert b'LMI-UFS-TRACE-v1' in core[0] and b'LMI-UFS-ORIGINAL' in core[0]
+assert b'LMI UFS Serial Log v1' in core[0]
+sec=list((uefi/'Build/lmiPkg').glob('**/AARCH64/Sec.efi'));assert len(sec)==1
+assert b'LMI UFS Serial Log v1' in sec[0].read_bytes()
+(out/'Sec.efi').write_bytes(sec[0].read_bytes())
 (out/'DxeCore.efi').write_bytes(core[0])
 flags=['--target=aarch64-pc-windows-msvc','-ffreestanding','-fno-builtin','-fshort-wchar',
  '-fno-stack-protector','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-mno-outline-atomics',
@@ -49,9 +53,11 @@ run('python3',overlay/'scripts/pack_bootimg.py','--uefi',uefi,'--fd',out/'SILICI
 report=verify(out,src)
 report.update(source_commit=os.environ['GITHUB_SHA'],build_run=os.environ['GITHUB_SERVER_URL']+'/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID'],
  vendor_ufs_byte_identical=True,vendor_ufs_sha256=sha(vendor),dxe_core_sha256=sha(core[0]),compiled_trace_markers=True,
- normal_dispatch_only=True,new_firmware_requires_hardware_qualification=True)
+ normal_dispatch_only=True,new_firmware_requires_hardware_qualification=True,
+ serial_capture_window='original UFS CoreStartImage only',serial_forwarding_preserved=True,
+ sec_sha256=sha(sec[0].read_bytes()))
 (out/'verification.json').write_text(json.dumps(report,indent=2)+'\n')
-for name in ['README.md','unixnu.toml','verify.py','UfsDispatchTrace.h','DispatcherTrace.inc','TraceView.c','instrument.py','test_trace.c']:
+for name in ['README.md','unixnu.toml','verify.py','UfsDispatchTrace.h','DispatcherTrace.inc','TraceView.c','instrument.py','test_trace.c','UfsSerialLog.h','SerialCapture.inc','SerialBridge.inc','LogText.inc']:
     shutil.copyfile(src/name,out/name)
 (out/'source-sha256.json').write_text(json.dumps({p.name:sha(p.read_bytes()) for p in src.iterdir() if p.is_file()},indent=2)+'\n')
 payload.unlink();(out/'TraceView.obj').unlink()

@@ -1,7 +1,7 @@
-name: LMIPRO original UFS initialization trace
+name: LMIPRO original UFS error log
 on:
   push:
-    branches: [test/lmipro-ufs-dispatch-20261102]
+    branches: [test/lmipro-ufs-log-20261103]
   workflow_dispatch:
 permissions:
   contents: read
@@ -100,7 +100,7 @@ jobs:
           gcc -std=c11 -O2 -Wall -Wextra -Werror overlay/diagnostics/ufs-dispatch/test_trace.c -o trace-test
           ./trace-test
           edk2=$(find unixnu/out/feeds -maxdepth 1 -type d -name 'mu_basecore-*' | head -1)
-          python3 overlay/diagnostics/ufs-dispatch/instrument.py --edk2 "$edk2" | tee instrumentation.json
+          python3 overlay/diagnostics/ufs-dispatch/instrument.py --edk2 "$edk2" --uefi uefi | tee instrumentation.json
 
       - name: Build the firmware volume
         run: |
@@ -133,7 +133,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lmipro-ufs-original-dispatch
+          name: lmipro-ufs-original-error-log
           retention-days: 7
           if-no-files-found: warn
           path: |

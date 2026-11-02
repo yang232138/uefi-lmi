@@ -3,6 +3,7 @@
  * No hardware access, extra driver dispatch or vendor entry calls.
  */
 #include "UfsDispatchTrace.h"
+#include "SerialBridge.inc"
 
 STATIC EFI_GUID mLmiTraceGuid = LMI_TRACE_GUID;
 STATIC EFI_GUID mLmiUfsGuid = LMI_UFS_GUID;
@@ -23,6 +24,10 @@ LmiUfsRecord (
 
   if ((Entry != NULL) && !CompareGuid (&Entry->FileName, &mLmiUfsGuid)) {
     return;
+  }
+  if (mLmiLog != NULL && Entry != NULL) {
+    if (Stage == LmiTraceEntryBegin) mLmiLog->Enabled = 1;
+    if (Stage == LmiTraceEntryEnd) mLmiLog->Enabled = 0;
   }
   Flags = 0;
   if (Entry != NULL) {
@@ -56,6 +61,7 @@ STATIC VOID
 LmiUfsTraceInitialize (VOID)
 {
   EFI_STATUS PublishStatus;
+  LmiSerialInitialize ();
   PublishStatus = CoreInstallConfigurationTable (&mLmiTraceGuid, &mLmiTrace);
   LmiUfsRecord (NULL, LmiTraceInit, PublishStatus);
   DEBUG ((DEBUG_ERROR, "LMI-UFS-TRACE-v1 publish=%r\n", PublishStatus));
