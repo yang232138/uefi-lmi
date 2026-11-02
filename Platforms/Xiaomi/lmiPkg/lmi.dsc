@@ -93,6 +93,8 @@
 #
 [Components]
 
+  QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf
+
   UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
   UniXNUPkg/Application/UniXNU/UniXNU.inf
