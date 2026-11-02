@@ -1,10 +1,9 @@
 """Read a private draft release asset; never publish the reference input files."""
 from pathlib import Path
 import hashlib, json, os, tarfile, urllib.request
-asset=os.environ['INPUT_ASSET_ID']
+url=os.environ['INPUT_ASSET_URL']
 expected=os.environ['INPUT_ARCHIVE_SHA256']
-request=urllib.request.Request('https://api.github.com/repos/yang232138/uefi-lmi/releases/assets/'+asset,
-    headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/octet-stream','User-Agent':'LMIPRO-miniram'})
+request=urllib.request.Request(url,headers={'User-Agent':'LMIPRO-miniram'})
 with urllib.request.urlopen(request,timeout=120) as response: data=response.read()
 assert hashlib.sha256(data).hexdigest()==expected,'Input archive differs from the locally checked exact assets'
 archive=Path('qualified-inputs.tar.gz')
