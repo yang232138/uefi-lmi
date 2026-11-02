@@ -1,0 +1,121 @@
+name: lmipro minimal RAM root and PID 1
+on:
+  push:
+    branches: [test/lmipro-miniram-20261102]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  miniram:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      LMIPRO_ROOT_POLICY_DIR: ${{ github.workspace }}/root-policy
+      LMIPRO_SEED_PROOF: ${{ github.workspace }}/root-seed/seed-proof.json
+      LMIPRO_REFERENCE_DIR: ${{ github.workspace }}/qualified-inputs/reference
+      LMIPRO_ORIGINAL_CACHE: ${{ github.workspace }}/unixnu/out/ipsw/21H461/kernelcache.decompressed
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: overlay
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install host tools
+        run: |
+          brew install llvm lld mtools dtc unifdef openssl@3
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          python3 -m pip install pyfatfs
+          xcodebuild -version
+      - name: Fetch pinned sources and the isolated board revision
+        run: |
+          mkdir unixnu lmipro uefi DarwinBoot VerifiedRoot
+          git -C unixnu init -q
+          git -C unixnu remote add origin https://github.com/yang232138/UniXNU.git
+          git -C unixnu fetch -q --depth 1 origin ee472385743ebd16941ab14892dcb9d02e219d15
+          git -C unixnu checkout -q FETCH_HEAD
+          git -C lmipro init -q
+          git -C lmipro remote add origin https://github.com/yang232138/lmipro.git
+          git -C lmipro fetch -q --depth 1 origin 48dde72d14d397204b20a5c7fd80e0ac71e1656b
+          git -C lmipro checkout -q FETCH_HEAD
+          git -C uefi init -q
+          git -C uefi remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
+          git -C uefi fetch -q --depth 1 origin e51cd877e31c8fbb322032dc4cb6715e83d25ad3
+          git -C uefi checkout -q FETCH_HEAD
+          cp -a overlay/BootShim/. uefi/BootShim/
+          cp -a overlay/Resources/. uefi/Resources/
+          git -C DarwinBoot init -q
+          git -C DarwinBoot remote add origin https://github.com/UniXNU/DarwinBoot.git
+          git -C DarwinBoot fetch -q --depth 1 origin 3325e352d7df68a9f9ad74832ed94a6acbbd7390
+          git -C DarwinBoot checkout -q FETCH_HEAD
+          git -C VerifiedRoot init -q
+          git -C VerifiedRoot remote add origin https://github.com/UniXNU/VerifiedRoot.git
+          git -C VerifiedRoot fetch -q --depth 1 origin def026642c6c6e71be0dea267d989df1d29ddc64
+          git -C VerifiedRoot checkout -q FETCH_HEAD
+          git -C unixnu apply ../lmipro/package/miniram-build-guard.patch
+      - name: Restore private draft build inputs with pinned complete hashes
+        env:
+          INPUT_ASSET_ID: 700976945
+          INPUT_ARCHIVE_SHA256: fa156663a7d97f54f2d2ebb185bf88fc4f14c577e5df316b96bc7dd174fc94ef
+        run: python3 overlay/scripts/fetch_miniram_inputs.py
+      - name: Create the small genuine root, static PID 1, and signed block policy
+        run: python3 overlay/scripts/create_lmipro_miniram.py
+      - name: Validate actual per-read integrity including failure controls
+        run: |
+          mkdir -p output
+          python3 overlay/scripts/test_lmipro_verified_ram_read.py --cc "$(xcrun --find clang)" --openssl-prefix "$(brew --prefix openssl@3)" --out verified-read-host --kit VerifiedRoot --policy root-policy --seed root-seed/test-root.dbrdisk --implementation-dir lmipro/package
+          cp verified-read-host/read-integrity-checks.json output/verified-read-host-checks.json
+      - name: Resolve and verify the board/source inputs
+        run: |
+          python3 overlay/scripts/adapt.py --unixnu unixnu
+          cd unixnu
+          python3 scripts/porting-record.py check --device ../lmipro
+          ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          ./unixnu fetch -D ../lmipro
+          ./unixnu ipsw fetch KernelCache -D ../lmipro
+          ./unixnu status --json -D ../lmipro > ../output/resolved-status.json
+      - name: Restore incremental source kernel products
+        id: xnu_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/tree/.cache
+            unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/tree/build
+          key: macos26-lmipro-miniram-v1-${{ github.sha }}
+          restore-keys: |
+            macos26-lmipro-miniram-v1-
+            macos26-lmipro-root-crypto-v1-
+      - name: Build the actual kernel with readonly signed RAM owner enforcement
+        run: |
+          cd unixnu
+          ./unixnu build kernel -D ../lmipro
+      - name: Independently verify final link, guards and unchanged original components
+        run: |
+          python3 overlay/scripts/verify_lmipro_miniram_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro --out output --device-revision 48dde72d14d397204b20a5c7fd80e0ac71e1656b
+      - name: Pack and read back the normal and PID 1 proof images
+        run: python3 overlay/scripts/pack_verify_lmipro_miniram.py
+      - name: Keep reusable compiler products
+        if: ${{ always() && steps.xnu_cache.outputs.cache-primary-key != '' && steps.xnu_cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/tree/.cache
+            unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/tree/build
+          key: ${{ steps.xnu_cache.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lmipro-miniram-test
+          path: |
+            output/
+            root-seed/creation.log
+            root-seed/mininit-proof.json
+            root-seed/seed-proof.json
+            unixnu/out/**/logs/*.log
+          if-no-files-found: warn
+          retention-days: 7

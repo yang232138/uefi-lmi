@@ -32,15 +32,15 @@ lib=ctypes.CDLL(str(library))
 lib.vr_host_open.argtypes=[ctypes.c_void_p,ctypes.c_size_t,ctypes.c_void_p,ctypes.c_uint64,ctypes.POINTER(View)]
 lib.lmipro_verified_ram_read.argtypes=[ctypes.POINTER(View),ctypes.POINTER(Crypto),ctypes.c_uint64,ctypes.c_size_t,ctypes.POINTER(Io),ctypes.c_void_p,ctypes.POINTER(ctypes.c_uint64),ctypes.POINTER(ctypes.c_uint64)]
 encoded=ctypes.create_string_buffer((source/'manifest.bin').read_bytes());key=ctypes.create_string_buffer((source/'trusted-key.bin').read_bytes());view=View()
-assert hashlib.sha256(encoded.raw[:-1]).hexdigest()=='8d8836c00d21b290c13b87ce9913d9f93d0cbf3a88d8d156f2511af7f031e229'
-assert hashlib.sha256(key.raw[:-1]).hexdigest()=='95b218c864db0787a303ec5540c51660e8ed2348f43157ae683f349be2cf5105'
+assert hashlib.sha256(encoded.raw[:-1]).hexdigest()==os.environ['LMIPRO_MANIFEST_SHA256']
+assert hashlib.sha256(key.raw[:-1]).hexdigest()==os.environ['LMIPRO_TRUSTED_KEY_SHA256']
 assert lib.vr_host_open(encoded,len(encoded)-1,key,1,ctypes.byref(view))==0
 assert view.image_bytes==268394496 and view.block_count==65526
 # Expose the actual unchanged official static OpenSSL provider through a getter.
 lib.lr_host_crypto.restype=ctypes.POINTER(Crypto)
 crypto=lib.lr_host_crypto()
 seed=(a.seed or p.parent/'ram-root/seed-artifact/test-root.dbrdisk').read_bytes()
-assert hashlib.sha256(seed).hexdigest()=='64a0b51fcdd7b026675633d42321fe594d93a7d4b27c9c4c9755201f3b743676'
+assert hashlib.sha256(seed).hexdigest()==os.environ['LMIPRO_PACKED_SEED_SHA256']
 magic,version,page,logical,count=struct.unpack_from('<8sIIQQ',seed)
 assert (magic,version,page,logical)==(b'DBRDISK1',1,4096,view.image_bytes)
 raw=bytearray(logical);cursor=32+16*count
@@ -85,4 +85,3 @@ report=dict(real_current_rsa_policy_opened=True,exact_signed_root_sha256=hashlib
  unverified_bytes_published=False,kernel_execution=False,hardware_tested=False)
 (out/'read-integrity-checks.json').write_text(json.dumps(report,indent=2)+'\n')
 print('PASS:',len(checks),'read-integrity groups against real signed RAM image; host only')
-
