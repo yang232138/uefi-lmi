@@ -57,6 +57,7 @@
   INF Binaries/lmi/QcomPkg/Drivers/DALSYSDxe/DALSYSDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/ClockDxe/ClockDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/VcsDxe/VcsDxe.inf
+  INF QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/HALIOMMUDxe/HALIOMMUDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/HWIODxe/HWIODxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/GpiDxe/GpiDxe.inf

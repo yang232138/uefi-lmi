@@ -1,7 +1,7 @@
-name: LMIPRO original UFS error log
+name: LMIPRO UFS IORT coherency fix
 on:
   push:
-    branches: [test/lmipro-ufs-log-20261103]
+    branches: [test/lmipro-ufs-iort-20261103]
   workflow_dispatch:
 permissions:
   contents: read
@@ -129,12 +129,13 @@ jobs:
           python3 -m venv verify-tools
           verify-tools/bin/pip install uefi_firmware==1.16
           verify-tools/bin/python overlay/diagnostics/ufs-dispatch/package.py
+          verify-tools/bin/python overlay/diagnostics/ufs-dispatch/verify_iort.py output
 
       - name: Upload diagnostic image and build evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lmipro-ufs-original-error-log
+          name: lmipro-ufs-iort-coherency-fix
           retention-days: 7
           if-no-files-found: warn
           path: |

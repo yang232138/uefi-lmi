@@ -17,6 +17,7 @@ APRIORI DXE {
   INF Binaries/lmi/QcomPkg/Drivers/HWIODxe/HWIODxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/ChipInfoDxe/ChipInfoDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/PlatformInfoDxe/PlatformInfoDxe.inf
+  INF QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/HALIOMMUDxe/HALIOMMUDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/ULogDxe/ULogDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/CmdDbDxe/CmdDbDxe.inf
