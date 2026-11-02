@@ -9,7 +9,7 @@
  # boot is 128 MiB on this handset (single slot; from fastboot getvar
  # partition-size:boot = 0x8000000). 64 MiB matches the 64 MiB the firmware
 @@ -93,7 +94,7 @@
- size_mib = 86
+ size_mib = 64
  loader = "firmware"
  title = "Redmi K30 Pro"
 -kernel_args = ["-v", "serial=3"]
