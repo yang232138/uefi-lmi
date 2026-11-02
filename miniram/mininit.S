@@ -24,7 +24,7 @@ _start:
     mov x19, x0
     adrp x1, hello@PAGE
     add x1, x1, hello@PAGEOFF
-    mov x2, #(hello_end-hello)
+    mov x2, #46                    // length of hello
     mov x16, #4                   // write
     svc #0x80
 mode:
@@ -64,7 +64,7 @@ loop:
     mov x0, x19
     adrp x1, beat@PAGE
     add x1, x1, beat@PAGEOFF
-    mov x2, #(beat_end-beat)
+    mov x2, #18                    // length of heartbeat
     mov x16, #4
     svc #0x80
     b loop
