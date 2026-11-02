@@ -2,7 +2,7 @@
 from pathlib import Path
 import argparse, hashlib, json, shutil
 
-SOURCE_SHA = '1008348b1e53ac656f613a55aebbf33d162db133eaedc506dedde1bf96a9dba8'
+SOURCE_SHA = '24f50beeab071c52acbcbdabf8b282a2edcd7963a8744bb586950f607cc0b9bf'
 
 def transform(text):
     def edit(old, new):
