@@ -38,7 +38,7 @@ jobs:
           git -C unixnu checkout -q FETCH_HEAD
           git -C lmipro init -q
           git -C lmipro remote add origin https://github.com/yang232138/lmipro.git
-          git -C lmipro fetch -q --depth 1 origin 48dde72d14d397204b20a5c7fd80e0ac71e1656b
+          git -C lmipro fetch -q --depth 1 origin b829ae0fb511b93716007027065b82f1b0c47e7d
           git -C lmipro checkout -q FETCH_HEAD
           git -C uefi init -q
           git -C uefi remote add origin https://github.com/Project-Silicium/Mu-Silicium.git
