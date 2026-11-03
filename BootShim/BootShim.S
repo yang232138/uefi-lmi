@@ -1,3 +1,6 @@
+#define FDT_BASE 0x9F300000
+#define FDT_BYTES 0x100000
+
 _Head:
   adr   x1, _Payload    /* Set _Entry address */
   b     _Start          /* Jump to the real code */
@@ -19,6 +22,51 @@ _StackSize:
 #endif
 
 _Start:
+  /* Preserve the bootloader-patched FDT across SEC's MMU transition. */
+  mov   x8, x0
+  mov   x0, xzr
+  cbz   x8, _FdtDone
+  tst   x8, #7
+  b.ne  _FdtDone
+  ldr   x9, =0x80000000
+  cmp   x8, x9
+  b.lo  _FdtDone
+  lsr   x9, x8, #32
+  cbnz  x9, _FdtDone
+  ldr   w9, [x8]
+  ldr   w10, =0xEDFE0DD0
+  cmp   w9, w10
+  b.ne  _FdtDone
+  ldr   w10, [x8, #4]
+  rev   w10, w10
+  cmp   x10, #40
+  b.lo  _FdtDone
+  ldr   x9, =FDT_BYTES
+  cmp   x10, x9
+  b.hi  _FdtDone
+  add   x11, x8, x10
+  sub   x11, x11, #1
+  lsr   x11, x11, #32
+  cbnz  x11, _FdtDone
+  ldr   x9, =FDT_BASE
+  mov   x0, x9
+  cmp   x8, x9
+  b.eq  _FdtDone
+  b.hi  _FdtForward
+  add   x8, x8, x10
+  add   x9, x9, x10
+_FdtBackward:
+  ldrb  w11, [x8, #-1]!
+  strb  w11, [x9, #-1]!
+  subs  x10, x10, #1
+  b.ne  _FdtBackward
+  b     _FdtDone
+_FdtForward:
+  ldrb  w11, [x8], #1
+  strb  w11, [x9], #1
+  subs  x10, x10, #1
+  b.ne  _FdtForward
+_FdtDone:
   mov   x4, x1
   ldr   x5, =FD_BASE
   cmp   x4, x5
@@ -73,6 +121,7 @@ _ClearPayloadSector:
 _Dead:
   b     _Dead
 
+.ltorg
 .text
 .align 4
 
