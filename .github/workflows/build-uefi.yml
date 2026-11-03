@@ -127,7 +127,10 @@ jobs:
         # built, UniXNURamDiskDxe never publishes the payload volume, and the
         # menu has no xnu entry. String edits instead of a patch file so the
         # checkout's line endings do not matter.
-        run: python3 overlay/scripts/adapt.py --unixnu unixnu --uefi uefi
+        run: |
+          python3 overlay/scripts/adapt.py --unixnu unixnu --uefi uefi
+          python3 overlay/scripts/ramdisk-guard.py --unixnu unixnu
+          python3 overlay/scripts/test-ramdisk-guard.py --unixnu unixnu
 
       - name: Add early firmware diagnostics
         if: ${{ inputs.early_boot_diagnostics }}

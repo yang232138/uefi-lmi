@@ -79,6 +79,14 @@ Project-Silicium v4.0 的 SEC 入口 `AArch64/ModuleEntryPoint.S` 在进入 C �
 这种镜像（Load Error），所以 `BootShim.S` 写的是裸卷大小；脚本放宽该校验，运行前会断言
 上游未被改动。
 
+### 空负载启动隔离
+
+`ramdisk-guard.py` 在两条 RAM 磁盘发布路径上检查固定保留范围和 FAT 引导扇区，
+拒绝把缺失、损坏或越界负载当成磁盘。无内嵌负载的 BootShim 在跳入固件前清零
+该 RAM 保留区的首个 512 字节；带 `PAYLOAD_BASE` 的负载搬运路径不变。
+这使官方 `--ramdisk none` 测试不会扫描该地址遗留的数据。云编译会先运行实际 C
+检查函数的主机测试。此修正用于隔离固件启动故障，本身不证明已经修好自动重启。
+
 ## 改动前须知
 
 - 固件基址/大小（`0x9FC00000` / `0x300000`）是历史 lmi 值，编译进 BootShim 并由

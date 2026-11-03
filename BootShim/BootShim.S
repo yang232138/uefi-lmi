@@ -57,6 +57,17 @@ _NoPayload:
   ldr   x5, =FD_BASE
 
 _Entry:
+#ifndef PAYLOAD_BASE
+  /* Firmware-only boot: invalidate the reserved payload boot sector in RAM.
+     The DXE adapter must not discover stale bytes from a previous boot as FAT.
+     This address is reserved by lmi's MemoryMapLib; no storage is written. */
+  movz  x4, #0x9320, lsl #16
+  mov   x6, #32
+_ClearPayloadSector:
+  stp   xzr, xzr, [x4], #16
+  subs  x6, x6, #1
+  b.ne  _ClearPayloadSector
+#endif
   br    x5
 
 _Dead:
