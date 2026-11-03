@@ -386,6 +386,7 @@ jobs:
 
       - name: Build the userdata root image
         run: |
+          python3 overlay/scripts/test-userdata-reads.py --unixnu unixnu
           cd unixnu
           ./unixnu build userdata -D ../lmipro
           df -h "$GITHUB_WORKSPACE"

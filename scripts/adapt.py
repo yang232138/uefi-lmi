@@ -221,17 +221,37 @@ def patch_ramdisk(unixnu):
 
 
 def patch_userdata_chunk(unixnu):
-    """Read the attached disk image in smaller blocks.
+    """Read the attached disk image without raw-device transfer constraints.
 
     ``userdata.py`` reads 8 MiB at a time from /dev/rdiskN; macOS 26 answers
-    EINVAL for reads that large on a raw disk device, which aborted the
-    userdata build after the IPSW had already been extracted.
+    EINVAL for large raw reads. Even 1 MiB reads can return fewer bytes at
+    the image tail. Use the buffered whole-disk node and accumulate partial
+    reads, while still rejecting EOF before the declared image size.
     """
     text_edit(
         unixnu / 'scripts/unixnu/userdata.py',
         'CHUNK = 8 * MIB\n',
         'CHUNK = 1 * MIB  # lmi: /dev/rdiskN rejects 8 MiB reads on macOS 26 (EINVAL)\n',
         'userdata chunk')
+    text_edit(
+        unixnu / 'scripts/unixnu/userdata.py',
+        "        raw = device.replace('/dev/disk', '/dev/rdisk')\n",
+        '        # The block node handles unaligned tail transfers on macOS.\n'
+        '        raw = device\n',
+        'userdata buffered disk')
+    text_edit(
+        unixnu / 'scripts/unixnu/userdata.py',
+        '                data = handle.read(want)\n'
+        '                if len(data) != want:\n'
+        "                    raise Error(f'short read from {raw} at {done}')\n"
+        '                yield data\n'
+        '                done += want\n',
+        '                data = handle.read(want)\n'
+        '                if not data:\n'
+        "                    raise Error(f'unexpected EOF from {raw}: read {done} of {size} bytes')\n"
+        '                yield data\n'
+        '                done += len(data)\n',
+        'userdata partial reads')
 
 
 def patch_adt_root_uuid(unixnu):
