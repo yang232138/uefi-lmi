@@ -48,7 +48,7 @@ int main(void) {
   assert(mLmiIommu.Records[1].ReturnCode==0&&mLmiIommu.Records[1].DomainAttributes==0xe0);
   mode=1;result=0xdeadbeef;
   assert(f->Configure(domain,mode)==result&&fc==2);
-  assert(mLmiIommu.Records[2].ReturnCode==result&&mLmiIommu.Records[2].Argument==1);
+  assert(mLmiIommu.Records[2].ReturnCode==result&&mLmiIommu.Records[2].Argument==1&&mLmiIommu.Records[2].DomainAttributes==0);
   name="UFS0";arid=0x10;flags=0xabcdef01;result=0x18;
   assert(f->Attach(domain,name,arid,flags)==result&&ac==1);
   assert(mLmiIommu.Records[3].ReturnCode==0x18&&mLmiIommu.Records[3].Arid==0x10&&mLmiIommu.Records[3].Flags==flags);
