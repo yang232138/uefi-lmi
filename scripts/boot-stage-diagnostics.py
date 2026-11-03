@@ -36,11 +36,14 @@ LmiCheckpoint (CONST CHAR16 *Stage, UINTN Seconds)
     text_edit(loader, '  ZeroMem ((VOID *)(UINTN)Address, (UINTN)Used);\n',
               '  LmiCheckpoint (L"04 COPYING KERNEL AND INPUTS", 3);\n'
               '  ZeroMem ((VOID *)(UINTN)Address, (UINTN)Used);\n', 'kernel copy')
-    text_edit(loader, '  for (Attempt = 0; Attempt < 3; Attempt++) {\n',
+    # GetMap has the same retry-loop header. Include the boot loop's body so
+    # this cannot insert a delay into the earlier memory-map helper.
+    text_edit(loader, '  for (Attempt = 0; Attempt < 3; Attempt++) {\n    MapSize = Capacity;\n',
               '  // The green bar is drawn by the original assembly handoff.\n'
               '  // This checkpoint does NOT establish that XNU has executed.\n'
               '  LmiCheckpoint (L"05 BEFORE EXIT BOOT SERVICES", 20);\n'
-              '  for (Attempt = 0; Attempt < 3; Attempt++) {\n', 'before handoff')
+              '  for (Attempt = 0; Attempt < 3; Attempt++) {\n'
+              '    MapSize = Capacity;\n', 'before handoff')
     text_edit(loader, '  Print (L"DARWINBOOT: boot refused: %r; firmware retained\\n", Status);\n',
               '  Print (L"DARWINBOOT: boot refused: %r; firmware retained\\n", Status);\n'
               '  {\n'

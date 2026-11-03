@@ -134,7 +134,9 @@ jobs:
 
       - name: Add automatic boot-stage diagnostics
         if: ${{ inputs.boot_diagnostics }}
-        run: python3 overlay/scripts/boot-stage-diagnostics.py --unixnu unixnu
+        run: |
+          python3 overlay/scripts/test-boot-stage-diagnostics.py --unixnu unixnu
+          python3 overlay/scripts/boot-stage-diagnostics.py --unixnu unixnu
 
       - name: Build the firmware volume
         run: |
