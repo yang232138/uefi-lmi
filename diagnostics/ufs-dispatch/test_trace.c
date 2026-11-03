@@ -17,6 +17,9 @@ typedef struct {
   BOOLEAN Dependent,Scheduled,Initialized,Untrusted,Unrequested;
   BOOLEAN DepexProtocolError,Before,After,IsFvImage;
 } EFI_CORE_DRIVER_ENTRY;
+#define TRUE 1
+#define FALSE 0
+VOID LmiIommuInitialize(VOID) {}
 #define IN
 #define OPTIONAL
 #define STATIC static
@@ -69,15 +72,15 @@ int main(void) {
   CHECK(LmiSerialWrite(msg,2)==19 && ForwardBuffer==msg && ForwardBytes==2);
   CHECK(mLmiLog->Count==0);
   LmiUfsRecord(&ufs,LmiTraceEntryBegin,0);
-  CHECK(mLmiLog->Enabled==1);
+  CHECK(mLmiLog->Enabled==1 && LmiUfsObserverEnabled());
   LmiSerialWrite(msg,5);LmiSerialWrite(msg+5,sizeof(msg)-6);
   CHECK(mLmiLog->Count==sizeof(msg)-1 && !memcmp(mLmiLog->Bytes,msg,sizeof(msg)-1));
   CHECK(mLmiLog->Calls==2 && ForwardCalls==3);
   char line[69];CHECK(LogLine(mLmiLog,0,line)==mLmiLog->Count);
   CHECK(!strcmp(line,"UFS IOMMU LocateProtocol failed 0x8000000e"));
   CHECK(LogPages(mLmiLog)==1);
-  LmiUfsRecord(&other,LmiTraceEntryEnd,0);CHECK(mLmiLog->Enabled==1);
-  LmiUfsRecord(&ufs,LmiTraceEntryEnd,0);CHECK(mLmiLog->Enabled==0);
+  LmiUfsRecord(&other,LmiTraceEntryEnd,0);CHECK(mLmiLog->Enabled==1 && LmiUfsObserverEnabled());
+  LmiUfsRecord(&ufs,LmiTraceEntryEnd,0);CHECK(mLmiLog->Enabled==0 && !LmiUfsObserverEnabled());
   LmiSerialWrite(NULL,0);CHECK(ForwardCalls==4 && ForwardBuffer==NULL);
   UINT8 large[LMI_LOG_CAPACITY+9];memset(large,'x',sizeof(large));
   mLmiLog->Count=0;mLmiLog->Enabled=1;
