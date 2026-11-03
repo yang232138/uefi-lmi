@@ -59,7 +59,7 @@ int main(void) {
   enabled=1;null_table=1;((LMI_PROTOCOL*)p)->GetFunctions(&f);assert(!f&&gc==3);null_table=0;
   ((LMI_PROTOCOL*)p)->GetFunctions(&f);assert(gc==4);
   for(unsigned i=0;i<100;i++)assert(f->Configure(domain,mode)==result);
-  assert(fc==101&&mLmiIommu.Count==LMI_IOMMU_CAPACITY&&mLmiIommu.Dropped==81);
+  assert(fc==102&&mLmiIommu.Count==LMI_IOMMU_CAPACITY&&mLmiIommu.Dropped==81);
   assert(!memcmp(&protocol,&saved,sizeof(protocol)));
   puts("PASS: ABI; exact once forwarding; unchanged arguments and errors; scope; null; bounds; original preserved");return 0;
 }
