@@ -25,6 +25,8 @@ def walk(obj):
         yield from walk(child)
 
 def check(folder):
+    board = json.loads((folder / 'board-config-override.json').read_text())
+    assert board['setting'] == 'EnableUfsIOC' and board['value'] == 1 and board['replacement_count'] == 1
     fd = (folder / 'SILICIUM_UEFI.fd').read_bytes()
     volume = FirmwareVolume(fd)
     with contextlib.redirect_stdout(io.StringIO()):

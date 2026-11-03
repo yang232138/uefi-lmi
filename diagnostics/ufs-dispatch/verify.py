@@ -91,7 +91,7 @@ def verify(folder, source=None):
     assert marker.encode('ascii') in app or marker.encode('utf-16-le') in app
     title = 'LMIPRO IORT READONLY PROBE v1'
     assert title.encode('ascii') in app or title.encode('utf-16-le') in app
-    for marker in ('runtime domain attrs@+0x20', 'DAL UFS0 IORT CacheCoherency=0'):
+    for marker in ('runtime domain attrs@+0x20', 'DAL UFS0 IORT CacheCoherency=0', 'AUTO DISPLAY v1'):
         assert marker.encode('ascii') in app, 'Missing diagnostic marker: '+marker
     return dict(boot_sha256=sha(b),boot_bytes=len(b),fd_sha256=sha(fd),fd_bytes=len(fd),
         shim_sha256=sha(shim),dtb_sha256=sha(dtb),payload_sha256=sha(payload),

@@ -73,6 +73,11 @@ jobs:
           test -f uefi/Binaries/lmi/QcomPkg/Drivers/ButtonsDxe/ButtonsDxe.inf
           echo "vendor DXE files: $(find uefi/Binaries/lmi -type f | wc -l)"
 
+      - name: Enable UFS I/O coherency for the UFS IOMMU domain
+        run: |
+          python3 overlay/scripts/test_enable_ufs_ioc.py
+          python3 overlay/scripts/enable_ufs_ioc.py --source uefi/Platforms/Xiaomi/lmiPkg/Library/ConfigurationMapLib/ConfigurationMapLib.c --report board-config-override.json
+
       - name: Install bounded read-only IORT observer
         run: |
           cp overlay/diagnostics/ufs-dispatch/IortProbe.c uefi/Silicon/Qualcomm/QcomPkg/Drivers/IortDtDxe/IortDtDxe.c
@@ -147,5 +152,6 @@ jobs:
           if-no-files-found: warn
           path: |
             output/
+            board-config-override.json
             unixnu/out/**/logs/*.log
             instrumentation.json

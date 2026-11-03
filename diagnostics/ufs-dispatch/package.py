@@ -57,6 +57,10 @@ report.update(source_commit=os.environ['GITHUB_SHA'],build_run=os.environ['GITHU
  normal_dispatch_only=True,new_firmware_requires_hardware_qualification=True,
  serial_capture_window='original UFS CoreStartImage only',serial_forwarding_preserved=True,
  sec_sha256=sha(sec[0].read_bytes()))
+(out/'board-config-override.json').write_bytes((workspace/'board-config-override.json').read_bytes())
+board_config=json.loads((workspace/'board-config-override.json').read_text())
+assert board_config['setting']=='EnableUfsIOC' and board_config['value']==1 and board_config['replacement_count']==1
+report.update(enable_ufs_ioc=board_config)
 (out/'verification.json').write_text(json.dumps(report,indent=2)+'\n')
 for name in ['README.md','unixnu.toml','verify.py','UfsDispatchTrace.h','DispatcherTrace.inc','TraceView.c','instrument.py','test_trace.c','UfsSerialLog.h','SerialCapture.inc','SerialBridge.inc','LogText.inc','patch_dtb.py','IortProbe.h','IortProbe.c','IommuObserve.h','IommuObserve.inc','test_iommu.c']:
     shutil.copyfile(src/name,out/name)

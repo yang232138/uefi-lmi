@@ -66,8 +66,8 @@ static VOID trace_page(const LMI_TRACE_TABLE *t,UINTN p) {
   }
   print("flags: dep=1 sched=2 init=4 untrusted=8");
   print("SOR=10 depexErr=20 before=40 after=80 FV=100 (hex)");
-  print("N/P or arrows: pages. S: first. Esc: return.");
-  print("No automatic reboot. Photograph all pages.");
+  print("AUTO DISPLAY v1: next page in 15 seconds.");
+  print("Pages repeat automatically. No keyboard needed.");
 }
 static VOID iort_page(VOID) {
   if(ST->ConOut) ST->ConOut->ClearScreen(ST->ConOut);
@@ -86,7 +86,7 @@ static VOID iort_page(VOID) {
   print("iort/ufs ffffffff = absent or no valid DT examined");
   for(UINTN i=0;i<Iort->NodeCount;i++) {begin("IORT child: ");append(Iort->NodeNames[i]);print(Line);}
   begin("additional IORT children=");number(Iort->NodesDropped,10);print(Line);
-  print("N: UFS serial log, then dispatcher records.");
+  print("AUTO DISPLAY v1: next page in 15 seconds.");
 }
 static VOID iommu_page(VOID) {
   if(ST->ConOut) ST->ConOut->ClearScreen(ST->ConOut);
@@ -112,7 +112,8 @@ static VOID iommu_page(VOID) {
   print("Return codes are vendor UINT32, not EFI_STATUS.");
   print("returned=0 means no completed return was observed.");
   print("No added vendor calls, parameter changes or disk tests.");
-  print("N: IORT probe, then original serial log and dispatch.");
+  print("AUTO DISPLAY v1: stays 25 seconds; no keyboard needed.");
+  print("This page returns every cycle.");
 }
 static VOID page(const LMI_TRACE_TABLE *t,const LMI_SERIAL_LOG *log,UINTN p,UINTN lp) {
   if(p==0) {iommu_page();return;}
@@ -137,8 +138,8 @@ static VOID page(const LMI_TRACE_TABLE *t,const LMI_SERIAL_LOG *log,UINTN p,UINT
       row++;
     }
   }
-  print("N/P or arrows: log pages, then dispatch records.");
-  print("S: first page. Esc: return. Photograph all pages.");
+  print("AUTO DISPLAY v1: next page in 15 seconds.");
+  print("Pages repeat automatically. No keyboard needed.");
   print("Empty logs do not prove successful initialization.");
 }
 EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
@@ -177,19 +178,9 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
      Iommu->Size!=sizeof(*Iommu) || Iommu->Count>LMI_IOMMU_CAPACITY)) Iommu=NULL;
   UINTN lp=LogPages(log),total=2+lp+(trace?(trace->Count+11)/12:1);
   UINTN current=0;page(trace,log,current,lp);
-  if(!ST->ConIn) return EFI_UNSUPPORTED;
   for(;;) {
-    UINTN index=0;
-    EFI_STATUS status=ST->BootServices->WaitForEvent(1,&ST->ConIn->WaitForKey,&index);
-    if(EFI_ERROR(status)) return status;
-    EFI_INPUT_KEY key;
-    if(EFI_ERROR(ST->ConIn->ReadKeyStroke(ST->ConIn,&key))) continue;
-    if(key.ScanCode==SCAN_ESC) return EFI_SUCCESS;
-    if(key.UnicodeChar==L'n'||key.UnicodeChar==L'N'||key.ScanCode==SCAN_DOWN||key.ScanCode==SCAN_RIGHT) {
-      if(current+1<total) current++;
-    } else if(key.UnicodeChar==L'p'||key.UnicodeChar==L'P'||key.ScanCode==SCAN_UP||key.ScanCode==SCAN_LEFT) {
-      if(current) current--;
-    } else if(key.UnicodeChar==L's'||key.UnicodeChar==L'S') current=0;
+    ST->BootServices->Stall(current==0 ? 25000000 : 15000000);
+    current=(current+1)%total;
     page(trace,log,current,lp);
   }
 }
