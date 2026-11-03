@@ -43,6 +43,14 @@ on:
         description: Skip the userdata root image job (it is unchanged after the first flash)
         type: boolean
         default: false
+      firmware_only:
+        description: Build firmware only; reuse an already validated payload locally
+        type: boolean
+        default: false
+      boot_diagnostics:
+        description: Show automatic loader checkpoints before entering XNU
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -124,6 +132,10 @@ jobs:
           ./unixnu fetch -D ../lmipro
           ./unixnu status -D ../lmipro
 
+      - name: Add automatic boot-stage diagnostics
+        if: ${{ inputs.boot_diagnostics }}
+        run: python3 overlay/scripts/boot-stage-diagnostics.py --unixnu unixnu
+
       - name: Build the firmware volume
         run: |
           cd unixnu
@@ -160,7 +172,7 @@ jobs:
     # made the seed download fail. always() keeps this job running when userdata is
     # skipped, and the seed stays optional.
     needs: [firmware, userdata]
-    if: always() && needs.firmware.result == 'success'
+    if: always() && needs.firmware.result == 'success' && !inputs.firmware_only
     runs-on: macos-26
     timeout-minutes: 360
     env:
@@ -344,7 +356,7 @@ jobs:
     # 20 GB, so the IPSW cache is dropped as soon as the image exists.
     # Skipped from the dispatch inputs once the image has been flashed: it does
     # not change when only the firmware or the payload does.
-    if: ${{ !inputs.skip_userdata }}
+    if: ${{ !inputs.skip_userdata && !inputs.firmware_only }}
     needs: firmware
     runs-on: macos-26
     timeout-minutes: 360
