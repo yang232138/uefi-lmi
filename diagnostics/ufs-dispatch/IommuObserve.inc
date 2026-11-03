@@ -55,6 +55,9 @@ STATIC UINT32 EFIAPI LmiIommuConfigure (VOID *Domain, UINT32 Mode)
 {
   LMI_IOMMU_RECORD *R=LmiIommuBegin(2,Domain,Mode,0,0);
   UINT32 Result=mLmiOriginalFunctions->Configure(Domain,Mode);
+  /* HALIOMMUDxe writes the live domain attributes at offset 0x20. */
+  if (R != NULL && Result == 0 && Domain != NULL)
+    R->DomainAttributes = *(volatile UINT32 *)((volatile UINT8 *)Domain + 0x20);
   LmiIommuEnd(R,Result); return Result;
 }
 STATIC UINT32 EFIAPI LmiIommuAttach (VOID *Domain, CHAR8 *Name, UINT32 Arid, UINT32 Flags)

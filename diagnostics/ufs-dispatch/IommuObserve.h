@@ -5,7 +5,7 @@
 #define LMI_IOMMU_SIGNATURE 0x314c4c41434d4d49ULL
 #define LMI_IOMMU_CAPACITY 24
 typedef struct {
-  UINT32 Kind, Completed, ReturnCode, Reserved;
+  UINT32 Kind, Completed, ReturnCode, DomainAttributes;
   UINT64 Domain, Argument, Arid, Flags;
 } LMI_IOMMU_RECORD;
 typedef struct {

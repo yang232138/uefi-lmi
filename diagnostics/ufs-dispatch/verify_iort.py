@@ -51,6 +51,8 @@ def check(folder):
     assert sha(modules[HAL][0]) == '36a5adbe91a796940f4c09eb53ae4ffb1632ef20d8c3085f7cceb2a706c1e306', 'Vendor HAL changed'
     core=modules['d6a2cb7f-6a18-4e2f-b43b-9920a733700a']
     assert len(core)==1 and b'LMI-IOMMU-ORIGINAL-CALL-v1' in core[0]
+    assert b'runtime domain attrs@+0x20' in core[0], 'Runtime domain attribute observer missing'
+    assert b'DAL UFS0 IORT CacheCoherency=0' in core[0], 'Verified DAL IORT value missing'
     assert len(orders) == 1, 'Expected exactly one DXE APRIORI list'
     order = orders[0]
     assert all(order.count(g) == 1 for g in [IORT, HAL, UFS])

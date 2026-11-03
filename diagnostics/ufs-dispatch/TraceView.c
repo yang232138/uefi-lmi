@@ -92,6 +92,8 @@ static VOID iommu_page(VOID) {
   if(ST->ConOut) ST->ConOut->ClearScreen(ST->ConOut);
   print("LMIPRO IOMMU ORIGINAL CALLS v1");
   print("Original UFS calls, same arguments and real return codes.");
+  print("Domain attrs are read after Configure returns success.");
+  print("DAL UFS0 IORT CacheCoherency=0 (unchanged vendor table).");
   if(!Iommu) {print("Observer table missing or invalid. No inference possible.");return;}
   begin("located=");number(Iommu->Located,10);append(" wrapped=");number(Iommu->Wrapped,10);
   append(" records=");number(Iommu->Count,10);append(" dropped=");number(Iommu->Dropped,10);print(Line);
@@ -102,6 +104,9 @@ static VOID iommu_page(VOID) {
     begin("#");number(i+1,10);append(r->Kind==1?" Create":r->Kind==2?" Configure":" Attach");
     append(" returned=");number(r->Completed,10);append(" code=0x");number(r->ReturnCode,16);print(Line);
     begin(" domain=0x");number(r->Domain,16);append(r->Kind==2?" mode=0x":" arg=0x");number(r->Argument,16);print(Line);
+    if(r->Kind==2 && r->Completed && r->ReturnCode==0) {
+      begin("  runtime domain attrs@+0x20=0x");number(r->DomainAttributes,16);print(Line);
+    }
     if(r->Kind==3) {begin(" arid=0x");number(r->Arid,16);append(" flags=0x");number(r->Flags,16);print(Line);}
   }
   print("Return codes are vendor UINT32, not EFI_STATUS.");
