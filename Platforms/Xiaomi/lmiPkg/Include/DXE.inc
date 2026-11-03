@@ -4,9 +4,8 @@
   INF MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
   INF MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
 
-  # ScmDxe/TzDxe fault at DXE early on this board (FAR 0x09DFE000).
-  #INF Binaries/lmi/QcomPkg/Drivers/TzDxe/ScmDxeLA.inf
-  #INF Binaries/lmi/QcomPkg/Drivers/TzDxe/TzDxeLA.inf
+  INF Binaries/lmi/QcomPkg/Drivers/TzDxe/ScmDxeLA.inf
+  INF Binaries/lmi/QcomPkg/Drivers/TzDxe/TzDxeLA.inf
 
   INF MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
   INF MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
@@ -58,6 +57,7 @@
   INF Binaries/lmi/QcomPkg/Drivers/DALSYSDxe/DALSYSDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/ClockDxe/ClockDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/VcsDxe/VcsDxe.inf
+  INF QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/HALIOMMUDxe/HALIOMMUDxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/HWIODxe/HWIODxe.inf
   INF Binaries/lmi/QcomPkg/Drivers/GpiDxe/GpiDxe.inf
