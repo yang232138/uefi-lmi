@@ -4,6 +4,15 @@ import argparse, hashlib, json, shutil
 
 SOURCE_SHA = '24f50beeab071c52acbcbdabf8b282a2edcd7963a8744bb586950f607cc0b9bf'
 SHIM_SOURCE_SHA = '5378fa6d0273b332e5e6e178c1b9c5793283e5b1f67cf13ce4e2628c0144c209'
+LOCATE_SOURCE_SHA = '4069e74af0b01efa8f9ba109ab5921ddcd3decdfcdd1b6e2f9136ef7687eb8d2'
+
+def transform_locate(text):
+    old = '#include "DxeMain.h"'
+    assert text.count(old)==1
+    text=text.replace(old,old+'\n#include "IommuObserve.inc"')
+    old='Done:\n  CoreReleaseProtocolLock ();\n  return Status;\n}'
+    assert text.count(old)==1
+    return text.replace(old,'Done:\n  CoreReleaseProtocolLock ();\n  if (!EFI_ERROR (Status)) LmiIommuObserveLocated (Protocol, Interface);\n  return Status;\n}')
 
 def transform_shim(text):
     for old,new in [
@@ -54,6 +63,13 @@ def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--edk2', type=Path, required=True)
     ap.add_argument('--uefi', type=Path, required=True)
     args=ap.parse_args(); folder=Path(__file__).resolve().parent
+    locate=args.edk2/'MdeModulePkg/Core/Dxe/Hand/Locate.c'
+    before_locate=locate.read_bytes().replace(b'\r\n',b'\n')
+    assert hashlib.sha256(before_locate).hexdigest()==LOCATE_SOURCE_SHA,'Pinned Locate mismatch'
+    after_locate=transform_locate(before_locate.decode())
+    locate.write_text(after_locate,encoding='utf-8',newline='\n')
+    for name in ('IommuObserve.inc','IommuObserve.h'):
+        shutil.copyfile(folder/name,locate.parent/name)
     path=args.edk2/'MdeModulePkg/Core/Dxe/Dispatcher/Dispatcher.c'
     raw=path.read_bytes(); normalized=raw.replace(b'\r\n', b'\n')
     assert hashlib.sha256(normalized).hexdigest()==SOURCE_SHA, 'Pinned dispatcher mismatch'
@@ -70,6 +86,7 @@ def main():
         shutil.copyfile(folder/name,shim.parent/name)
     print(json.dumps({'dispatcher_before':SOURCE_SHA,'dispatcher_after':hashlib.sha256(changed.encode()).hexdigest(),
                       'shim_before':SHIM_SOURCE_SHA,'shim_after':hashlib.sha256(after.encode()).hexdigest(),
+                      'locate_before':LOCATE_SOURCE_SHA,'locate_after':hashlib.sha256(after_locate.encode()).hexdigest(),
                       'extra_driver_starts':False,'vendor_binary_changes':False}))
 
 if __name__=='__main__': main()

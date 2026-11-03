@@ -4,6 +4,9 @@
  */
 #include "UfsDispatchTrace.h"
 #include "SerialBridge.inc"
+extern VOID LmiIommuInitialize (VOID);
+STATIC BOOLEAN mLmiUfsObserveEnabled;
+BOOLEAN LmiUfsObserverEnabled (VOID) { return mLmiUfsObserveEnabled; }
 
 STATIC EFI_GUID mLmiTraceGuid = LMI_TRACE_GUID;
 STATIC EFI_GUID mLmiUfsGuid = LMI_UFS_GUID;
@@ -24,6 +27,10 @@ LmiUfsRecord (
 
   if ((Entry != NULL) && !CompareGuid (&Entry->FileName, &mLmiUfsGuid)) {
     return;
+  }
+  if (Entry != NULL) {
+    if (Stage == LmiTraceEntryBegin) mLmiUfsObserveEnabled = TRUE;
+    if (Stage == LmiTraceEntryEnd) mLmiUfsObserveEnabled = FALSE;
   }
   if (mLmiLog != NULL && Entry != NULL) {
     if (Stage == LmiTraceEntryBegin) mLmiLog->Enabled = 1;
@@ -62,6 +69,7 @@ LmiUfsTraceInitialize (VOID)
 {
   EFI_STATUS PublishStatus;
   LmiSerialInitialize ();
+  LmiIommuInitialize ();
   PublishStatus = CoreInstallConfigurationTable (&mLmiTraceGuid, &mLmiTrace);
   LmiUfsRecord (NULL, LmiTraceInit, PublishStatus);
   DEBUG ((DEBUG_ERROR, "LMI-UFS-TRACE-v1 publish=%r\n", PublishStatus));

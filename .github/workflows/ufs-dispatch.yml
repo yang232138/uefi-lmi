@@ -1,7 +1,7 @@
-name: LMIPRO UFS IORT read-only diagnosis
+name: LMIPRO UFS original IOMMU call trace
 on:
   push:
-    branches: [test/lmipro-ufs-iort-ro-20261103]
+    branches: [test/lmipro-ufs-iommu-call-20261103]
   workflow_dispatch:
 permissions:
   contents: read
@@ -104,6 +104,8 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror overlay/diagnostics/ufs-dispatch/test_trace.c -o trace-test
           ./trace-test
+          gcc -std=c11 -O2 -Wall -Wextra -Werror overlay/diagnostics/ufs-dispatch/test_iommu.c -o iommu-test
+          ./iommu-test
           edk2=$(find unixnu/out/feeds -maxdepth 1 -type d -name 'mu_basecore-*' | head -1)
           python3 overlay/diagnostics/ufs-dispatch/instrument.py --edk2 "$edk2" --uefi uefi | tee instrumentation.json
 
@@ -140,7 +142,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lmipro-ufs-iort-readonly
+          name: lmipro-ufs-iommu-call-trace
           retention-days: 7
           if-no-files-found: warn
           path: |

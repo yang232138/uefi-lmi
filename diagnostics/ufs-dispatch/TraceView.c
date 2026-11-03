@@ -6,6 +6,9 @@
 #include "UfsSerialLog.h"
 #include "LogText.inc"
 #include "IortProbe.h"
+#include "IommuObserve.h"
+static EFI_GUID IommuGuid = LMI_IOMMU_GUID;
+static const LMI_IOMMU_TABLE *Iommu;
 
 static EFI_SYSTEM_TABLE *ST;
 static EFI_GUID TraceGuid = LMI_TRACE_GUID;
@@ -85,7 +88,30 @@ static VOID iort_page(VOID) {
   begin("additional IORT children=");number(Iort->NodesDropped,10);print(Line);
   print("N: UFS serial log, then dispatcher records.");
 }
+static VOID iommu_page(VOID) {
+  if(ST->ConOut) ST->ConOut->ClearScreen(ST->ConOut);
+  print("LMIPRO IOMMU ORIGINAL CALLS v1");
+  print("Original UFS calls, same arguments and real return codes.");
+  if(!Iommu) {print("Observer table missing or invalid. No inference possible.");return;}
+  begin("located=");number(Iommu->Located,10);append(" wrapped=");number(Iommu->Wrapped,10);
+  append(" records=");number(Iommu->Count,10);append(" dropped=");number(Iommu->Dropped,10);print(Line);
+  begin("original protocol=0x");number(Iommu->Protocol,16);print(Line);
+  begin("original functions=0x");number(Iommu->Functions,16);print(Line);
+  for(UINTN i=0;i<Iommu->Count;i++) {
+    const LMI_IOMMU_RECORD *r=&Iommu->Records[i];
+    begin("#");number(i+1,10);append(r->Kind==1?" Create":r->Kind==2?" Configure":" Attach");
+    append(" returned=");number(r->Completed,10);append(" code=0x");number(r->ReturnCode,16);print(Line);
+    begin(" domain=0x");number(r->Domain,16);append(r->Kind==2?" mode=0x":" arg=0x");number(r->Argument,16);print(Line);
+    if(r->Kind==3) {begin(" arid=0x");number(r->Arid,16);append(" flags=0x");number(r->Flags,16);print(Line);}
+  }
+  print("Return codes are vendor UINT32, not EFI_STATUS.");
+  print("returned=0 means no completed return was observed.");
+  print("No added vendor calls, parameter changes or disk tests.");
+  print("N: IORT probe, then original serial log and dispatch.");
+}
 static VOID page(const LMI_TRACE_TABLE *t,const LMI_SERIAL_LOG *log,UINTN p,UINTN lp) {
+  if(p==0) {iommu_page();return;}
+  p--;
   if(p==0) {iort_page();return;}
   p--;
   if(p>=lp) {trace_page(t,p-lp);return;}
@@ -127,6 +153,7 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
   const LMI_TRACE_TABLE *trace=NULL;
   const LMI_SERIAL_LOG *log=NULL;
   for(UINTN i=0;i<ST->NumberOfTableEntries;i++) {
+    if(equal(&ST->ConfigurationTable[i].VendorGuid,&IommuGuid)) Iommu=ST->ConfigurationTable[i].VendorTable;
     if(equal(&ST->ConfigurationTable[i].VendorGuid,&IortGuid)) Iort=ST->ConfigurationTable[i].VendorTable;
     if(equal(&ST->ConfigurationTable[i].VendorGuid,&TraceGuid)) {
       trace=ST->ConfigurationTable[i].VendorTable;
@@ -141,7 +168,9 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image,EFI_SYSTEM_TABLE *table) {
       log->Capacity!=LMI_LOG_CAPACITY || log->Count>log->Capacity || log->Enabled)) log=NULL;
   if(Iort && (Iort->Signature!=LMI_IORT_PROBE_SIGNATURE || Iort->Version!=1 ||
       Iort->Size!=sizeof(*Iort) || Iort->ReadOnly!=1 || Iort->NodeCount>LMI_IORT_PROBE_NODES)) Iort=NULL;
-  UINTN lp=LogPages(log),total=1+lp+(trace?(trace->Count+11)/12:1);
+  if(Iommu && (Iommu->Signature!=LMI_IOMMU_SIGNATURE || Iommu->Version!=1 ||
+     Iommu->Size!=sizeof(*Iommu) || Iommu->Count>LMI_IOMMU_CAPACITY)) Iommu=NULL;
+  UINTN lp=LogPages(log),total=2+lp+(trace?(trace->Count+11)/12:1);
   UINTN current=0;page(trace,log,current,lp);
   if(!ST->ConIn) return EFI_UNSUPPORTED;
   for(;;) {

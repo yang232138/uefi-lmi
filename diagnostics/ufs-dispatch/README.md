@@ -1,40 +1,11 @@
-# Original UFS entry serial log and dispatcher observer
+# LMIPRO 原厂 IOMMU 调用记录诊断
 
-Adds a bounded 32 KiB RAM copy at the source ShimLoader SerialPort Lib write
-interface. The original serial write receives identical arguments exactly once
-and its return value is preserved. Capture is enabled only around the original
-target CoreStartImage; no extra entry, hardware or disk calls are made.
-DXE Core discovers our named extension through the existing documented Shim HOB
-and library loader, then publishes a separate configuration table for the viewer.
-The viewer starts with log pages and then shows the existing dispatcher trace.
-Overflow is counted, never overwrites earlier bytes. Empty logs are inconclusive.
-This observer does not fix the UFS driver and does not qualify IOMMU/DMA or disks.
-Original vendor UFSDxe bytes remain identical. No protocol or success is faked.
+本镜像在原厂 UFS 驱动正常启动期间，观察原厂 HALIOMMU 的 Create、Configure 和 Attach 调用。所有参数原样转发一次，真实 UINT32 返回码原样返回；不添加控制器调用，不修改原厂驱动文件。记录存放在有限容量的 RAM 表。
 
-The follow-up image applies a narrow board-DTB fix: it enables `ufshc_card` and
-adds SM8250 UFS stream IDs `0xe0` and `0x4e0` under `apps_smmu`. It is still a
-temporary qualification image; a successful attach does not yet prove a block
-read or root mount.
+首屏 LMIPRO IOMMU ORIGINAL CALLS v1 显示调用完成标记、实际返回码、域、配置模式、ARID 和 flags。returned=0 表示尚未观察到调用完成，不能当作成功。N 可查看前版 DT 观察结果、原厂串口日志和调度记录。
 
-Diagnostic build only. The dispatcher retains its normal discovery, scheduling,
-load and entry calls. Fixed-size DXE Core memory records only target GUID
-0d35cd8e-97ea-4f9a-96af-0f0d89f76567, plus publication/dispatcher-end markers.
-A configuration table publishes the record buffer; TraceView reads it before
-ExitBootServices. No private memory scanning or persistent variables are used.
+静态分析确认本机原厂 HALIOMMU 从 DAL 的 SMMU/IORT 属性读取内置二进制表。前版未找到命名 XBL 区域或 DT 中的 IORT，不能据此认定 UFS 失败根因。内置表中的 UFS0 映射仍需实际运行结果验证。
 
-No additional StartImage, Dispatch, ConnectController, UFS/disk commands or MMIO
-are introduced. The original firmware may still perform its normal hardware
-initialization. Vendor binary bytes and board memory mappings are unchanged.
-An entry-begin status of EFI_NOT_READY is a sentinel, not an entry failure.
-The entry return record is the actual CoreStartImage return status. A successful
-entry does not establish completion of callbacks, physical disks or DMA.
+测试覆盖函数表布局、原参数及返回值保留、每次仅转发一次、目标启动窗口、空表和容量上限；实际源以 ARM64 严格警告编译。构建和镜像检查通过后仅使用 fastboot boot 临时启动。没有刷写、擦除或重新分区。
 
-This rebuild is a new FD and must be qualified independently. Exact historical
-FD identity no longer applies. Check the firmware and image hashes before one
-temporary fastboot boot. Never flash this image. The payload contains only an
-EFI result viewer, no XNU and no full OS. Android ADB will not be available in
-the viewer. Photograph every result page; N/P and arrow keys navigate.
-
-If the device fails before the viewer, the entry markers in the ordinary debug
-output may help, but they do not guarantee an on-screen retained trace.
-The collector reports dropped records instead of overwriting old evidence.
+本镜像仅包含诊断查看器。IOMMU 绑定、DMA、已知块读取、根文件系统及完整系统启动分别需要实机证据，构建成功不能代替这些验证。

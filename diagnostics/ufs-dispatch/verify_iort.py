@@ -14,7 +14,7 @@ HAL = '9a00771f-36d4-4dd5-8916-c48ed9b16b86'
 UFS = '0d35cd8e-97ea-4f9a-96af-0f0d89f76567'
 APRIORI = 'fc510ee7-ffdc-11d4-bd41-0080c73c8881'
 UFS_SHA = 'ffeaed467f8251b7e30a45075da84a1c563e2bac7dc4be0f79f0ed49a88b8dc9'
-OLD_BOOT = '0f1666bbac600e352843799de62bb6ddcc49f86d6a6601ede9536299f68d0c96'
+OLD_BOOT = '01192a033fa98b364cfd716e19af427e01518a44da5e3a6376bd17ddaf45d399'
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -48,6 +48,9 @@ def check(folder):
     assert len(modules.get(HAL, [])) == 1, 'HALIOMMU missing or duplicated'
     assert len(modules.get(UFS, [])) == 1, 'UFSDxe missing or duplicated'
     assert sha(modules[UFS][0]) == UFS_SHA, 'Vendor UFS bytes changed'
+    assert sha(modules[HAL][0]) == '36a5adbe91a796940f4c09eb53ae4ffb1632ef20d8c3085f7cceb2a706c1e306', 'Vendor HAL changed'
+    core=modules['d6a2cb7f-6a18-4e2f-b43b-9920a733700a']
+    assert len(core)==1 and b'LMI-IOMMU-ORIGINAL-CALL-v1' in core[0]
     assert len(orders) == 1, 'Expected exactly one DXE APRIORI list'
     order = orders[0]
     assert all(order.count(g) == 1 for g in [IORT, HAL, UFS])
