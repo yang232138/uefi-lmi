@@ -1,5 +1,20 @@
 # Temporary boot-stage diagnostics
 
+`early_boot_diagnostics=true` separately enables `LMIPRO EARLY v1` messages in
+SEC's existing debug console. Use it when the menu and loader checkpoints were
+never seen. E1 follows platform initialization and debug-console setup; E2 and
+E3 show the actual return statuses of memory and platform-HOB initialization;
+E4 shows firmware-volume decompression status; E5 precedes DXE-core loading.
+Each message pauses for 0.5 seconds. A returned DXE core also logs its status.
+No keyboard is needed; record video because these messages can scroll.
+
+These messages do not cover BootShim, entry assembly, or work before the debug
+console initializes. No visible message alone cannot establish that SEC never
+executed. Logging uses the existing console and TimerLib; it adds no framebuffer
+addresses, storage writes, reset calls, persistent variables, or watchdog changes.
+Short delays can still affect watchdog timing. Loader checkpoints below remain
+independent and optional. Default builds apply neither diagnostic adapter.
+
 Select `boot_diagnostics=true` in build-uefi to apply the fail-closed source
 adapter in `scripts/boot-stage-diagnostics.py` after component fetch. Defaults
 remain unchanged. `firmware_only=true` skips both macOS jobs; its FD must be
