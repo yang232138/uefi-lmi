@@ -15,6 +15,10 @@ name: build-uefi
 on:
   workflow_dispatch:
     inputs:
+      kernel_rebuild_only:
+        description: Fresh XNU source build only, without a kernel cache or firmware/root image jobs
+        type: boolean
+        default: false
       unixnu_repo:
         description: UniXNU repository (owner/name)
         required: true
@@ -64,7 +68,72 @@ defaults:
     shell: bash
 
 jobs:
+  kernel-rebuild:
+    if: inputs.kernel_rebuild_only
+    runs-on: macos-26
+    timeout-minutes: 360
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out this overlay
+        uses: actions/checkout@v4
+        with:
+          path: overlay
+      - name: Check out pinned UniXNU
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.unixnu_repo }}
+          ref: ${{ inputs.unixnu_ref }}
+          path: unixnu
+      - name: Check out pinned LMIPRO device
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.device_repo }}
+          ref: ${{ inputs.device_ref }}
+          path: lmipro
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install host tools
+        run: |
+          brew install llvm lld mtools dtc unifdef
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          test -d "$DEVELOPER_DIR"
+          xcodebuild -version
+      - name: Resolve LMIPRO sources and configuration
+        run: |
+          cd unixnu
+          ./unixnu defconfig lmipro_defconfig -D ../lmipro
+          ./unixnu fetch -D ../lmipro
+          ./unixnu status --json -D ../lmipro > ../resolved-kernel.json
+      - name: Compile and prelink XNU from scratch
+        run: |
+          cd unixnu
+          # This job restores no cache. Fail if a prebuilt kernel appears.
+          test -z "$(find out -path '*/kernel/kernel.macho' -print -quit)"
+          ./unixnu build kernel -D ../lmipro
+      - name: Validate and record the fresh kernel
+        run: python3 overlay/scripts/record-fresh-kernel.py --unixnu unixnu --device lmipro --out fresh-kernel
+      - name: Upload fresh kernel and provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmipro-fresh-kernel
+          path: fresh-kernel/
+          if-no-files-found: error
+          retention-days: 3
+      - name: Upload compiler logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmipro-fresh-kernel-logs
+          path: |
+            resolved-kernel.json
+            unixnu/out/**/logs/*.log
+          if-no-files-found: warn
+          retention-days: 7
   firmware:
+    if: ${{ !inputs.kernel_rebuild_only }}
     # EDK II builds with clang + lld on Linux. The kernel step needs macOS, so
     # this job stops at the firmware volume and the boot image.
     runs-on: ubuntu-latest
