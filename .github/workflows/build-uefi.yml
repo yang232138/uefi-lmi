@@ -120,6 +120,13 @@ jobs:
           test -f uefi/Platforms/Xiaomi/lmiPkg/lmi.dsc
           test -f uefi/Binaries/lmi/QcomPkg/Drivers/ButtonsDxe/ButtonsDxe.inf
           echo "vendor DXE files: $(find uefi/Binaries/lmi -type f | wc -l)"
+          python3 overlay/scripts/test-firmware-only-memory-map.py
+
+      - name: Expand DXE memory for firmware-only boot
+        if: ${{ inputs.firmware_only }}
+        run: |
+          python3 overlay/scripts/firmware-only-memory-map.py \
+            --apply uefi/Platforms/Xiaomi/lmiPkg/Library/MemoryMapLib/MemoryMapLib.c
 
       - name: Adapt the pinned upstreams
         # bootimg's image_size check, and the SEC entry-argument handoff that
@@ -158,6 +165,9 @@ jobs:
           fd=$(find ../uefi/Build/lmiPkg -path '*FV/SILICIUM_UEFI.fd' | head -1)
           test -n "$fd" || { echo 'no firmware volume produced'; exit 1; }
           echo "firmware volume: $fd ($(stat -c %s "$fd") bytes)"
+          python3 ../overlay/scripts/firmware-only-memory-map.py \
+            --report ../uefi/Platforms/Xiaomi/lmiPkg/Library/MemoryMapLib/MemoryMapLib.c \
+            > ../firmware-memory-map.json
 
       - name: Pack the boot image
         run: |
@@ -177,6 +187,7 @@ jobs:
             unixnu/out/**/boot/boot.img
             unixnu/out/**/boot/boot.json
             unixnu/out/**/logs/*.log
+            firmware-memory-map.json
           if-no-files-found: warn
           retention-days: 14
 
