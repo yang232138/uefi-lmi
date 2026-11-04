@@ -10,12 +10,20 @@ import tempfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--unixnu', required=True, type=Path)
 parser.add_argument('--payload-sector', type=Path, help='Optional real payload boot sector')
+parser.add_argument('--payload-bytes', type=lambda value: int(value, 0),
+                    choices=(0x4000000, 0x5600000), default=0x5600000)
 args = parser.parse_args()
 adapter = runpy.run_path(str(Path(__file__).with_name('ramdisk-guard.py')))
 source = (args.unixnu / adapter['DRIVER']).read_text(encoding='utf-8')
-patched = adapter['patch'](source)
-assert adapter['patch'](patched) == patched
-assert adapter['patch'](source.replace('\n', '\r\n').replace('\r\n', '\n')) == patched
+patched = adapter['patch'](source, args.payload_bytes)
+assert adapter['patch'](patched, args.payload_bytes) == patched
+assert adapter['patch'](source.replace('\n', '\r\n').replace('\r\n', '\n'), args.payload_bytes) == patched
+try:
+    adapter['patch'](patched, 0x4000000 if args.payload_bytes == 0x5600000 else 0x5600000)
+except ValueError:
+    pass
+else:
+    raise AssertionError('guard from another memory map accepted')
 assert patched.count('if (!LmiPayloadPresent (') == 2
 for name in ('PublishInitrd', 'PublishWindow'):
     body = patched[patched.index('\n' + name + ' ('):]
@@ -25,7 +33,7 @@ for name in ('PublishInitrd', 'PublishWindow'):
 
 # Redirect only the validated physical window to a host buffer. The range check
 # remains unchanged, so an invalid pointer crashes the test if read too early.
-guard = adapter['GUARD'].replace('Boot = (CONST UINT8 *)(UINTN)Start;', 'Boot = Sector;')
+guard = adapter['guard'](args.payload_bytes).replace('Boot = (CONST UINT8 *)(UINTN)Start;', 'Boot = Sector;')
 harness = r'''
 #include <stdint.h>
 #include <string.h>
@@ -46,11 +54,11 @@ harness += guard
 harness += r'''
 static void put16(int p,UINT16 n) {memcpy(Sector+p,&n,2);}
 static void put32(int p,UINT32 n) {memcpy(Sector+p,&n,4);}
-static int present(void) {return LmiPayloadPresent(0x93200000ULL,0x98800000ULL);}
+static int present(void) {return LmiPayloadPresent(0x93200000ULL,WINDOW_END);}
 static void valid(void) {
  memset(Sector,0,sizeof(Sector));Sector[0]=0xeb;Sector[510]=0x55;Sector[511]=0xaa;
  put16(11,512);Sector[13]=4;put16(14,1);Sector[16]=2;
- put16(17,512);put32(32,0x5600000/512);put16(22,256);
+ put16(17,512);put32(32,WINDOW_BYTES/512);put16(22,256);
 }
 int main(int argc,char **argv) {
  assert(!present()); memset(Sector,0xff,sizeof(Sector));assert(!present());
@@ -58,6 +66,8 @@ int main(int argc,char **argv) {
  assert(!LmiPayloadPresent(1,0x5600001));
  assert(!LmiPayloadPresent(0x93200000ULL,0));
  assert(!LmiPayloadPresent(0x93200000ULL,UINT64_MAX));
+ assert(!LmiPayloadPresent(0x93200000ULL,OTHER_END));
+ valid();put32(32,OTHER_BYTES/512);assert(!present());
  Sector[511]=0;assert(!present());valid();put16(11,4096);assert(!present());
  valid();Sector[13]=3;assert(!present());valid();Sector[13]=0;assert(!present());
  valid();put16(14,0);assert(!present());valid();Sector[16]=0;assert(!present());
@@ -69,6 +79,11 @@ int main(int argc,char **argv) {
  return 0;
 }
 '''
+harness = harness.replace('WINDOW_END', hex(0x93200000 + args.payload_bytes) + 'ULL')
+harness = harness.replace('WINDOW_BYTES', hex(args.payload_bytes))
+other = 0x4000000 if args.payload_bytes == 0x5600000 else 0x5600000
+harness = harness.replace('OTHER_END', hex(0x93200000 + other) + 'ULL')
+harness = harness.replace('OTHER_BYTES', hex(other))
 compiler = shutil.which('cc') or shutil.which('clang') or shutil.which('gcc')
 if not compiler:
     fallback = Path('C:/msys64/ucrt64/bin/clang.exe')

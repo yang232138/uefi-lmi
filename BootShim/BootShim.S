@@ -1,5 +1,11 @@
 #define FDT_BASE 0x9F300000
 #define FDT_BYTES 0x100000
+#ifndef PAYLOAD_SIZE
+#define PAYLOAD_SIZE 0x05600000
+#endif
+#if PAYLOAD_SIZE != 0x04000000 && PAYLOAD_SIZE != 0x05600000
+#error Unsupported lmi payload reservation
+#endif
 
 _Head:
   adr   x1, _Payload    /* Set _Entry address */
@@ -87,6 +93,11 @@ _CopyLoop:
   cmp   w2, w3
   b.ne  _NoPayload
   ldr   w6, [x4, #4]    /* Payload Size */
+  /* Never copy into the DXE heap, and reject zero before the countdown loop.
+     The FAT disk must occupy exactly the reservation selected for this FD. */
+  ldr   w3, =PAYLOAD_SIZE
+  cmp   w6, w3
+  b.ne  _NoPayload
   /* Copy the payload itself, not the 8-byte XNUP tag: the destination must
      start with the FAT boot sector the ramdisk driver expects. */
   add   x4, x4, #8
@@ -99,8 +110,17 @@ _PayloadLoop:
   stp   x2, x3, [x5], #16
   subs  x6, x6, #16
   b.ne  _PayloadLoop
+  b     _PayloadDone
 
 _NoPayload:
+  /* Missing or wrong-sized payload: do not expose stale RAM as a disk. */
+  ldr   x5, =PAYLOAD_BASE
+  mov   x6, #32
+_ClearInvalidPayload:
+  stp   xzr, xzr, [x5], #16
+  subs  x6, x6, #1
+  b.ne  _ClearInvalidPayload
+_PayloadDone:
 #endif
   ldr   x5, =FD_BASE
 

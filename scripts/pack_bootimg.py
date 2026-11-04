@@ -16,6 +16,7 @@ kernel field = gzip(BootShim + FD + XNUP + payload) + device tree, ramdisk empty
 """
 import argparse
 import gzip
+import json
 import struct
 import subprocess
 import sys
@@ -41,7 +42,7 @@ def config(uefi):
     return data
 
 
-def compile_shim(uefi, base, size, requires_header, payload_base, scratch):
+def compile_shim(uefi, base, size, requires_header, payload_base, scratch, payload_size=0x5600000):
     source = uefi / 'BootShim/BootShim.S'
     if not source.is_file():
         sys.exit(f'{source} missing')
@@ -51,6 +52,7 @@ def compile_shim(uefi, base, size, requires_header, payload_base, scratch):
         f'-DFD_BASE={base}', f'-DFD_SIZE={size}',
         f'-DREQUIRES_KERNEL_HEADER={int(requires_header)}',
         f'-DPAYLOAD_BASE={payload_base}',
+        f'-DPAYLOAD_SIZE={payload_size}',
         str(source), '-o', str(obj),
     ], check=True)
     subprocess.run([tool('llvm-objcopy'), '-O', 'binary', str(obj), str(scratch / 'shim.bin')], check=True)
@@ -69,6 +71,8 @@ def main():
     ap.add_argument('--payload', required=True, type=Path)
     ap.add_argument('--dtb', required=True, type=Path)
     ap.add_argument('--payload-base', default='0x93200000')
+    ap.add_argument('--memory-map', required=True, type=Path,
+                    help='Manifest from the exact firmware artifact being packed')
     ap.add_argument('--out', required=True, type=Path)
     args = ap.parse_args()
 
@@ -79,18 +83,26 @@ def main():
     image.update(cfg.get('boot_image', {}))
     requires_header = cfg.get('boot_shim', {}).get('requires_kernel_header', True)
     payload_base = int(args.payload_base, 16)
+    manifest = json.loads(args.memory_map.read_text(encoding='utf-8'))
+    payload_size = manifest['payload_reserved_bytes']
+    if (payload_base != 0x93200000 or manifest['payload_base'] != '0x93200000'
+            or payload_size not in (0x4000000, 0x5600000)
+            or manifest['map_intervals_non_overlapping'] is not True):
+        sys.exit('unsupported or inconsistent reserved payload window')
 
     firmware = args.fd.read_bytes()
     if len(firmware) != size:
         sys.exit(f'firmware volume is {len(firmware):#x} bytes, the config says {size:#x}')
     payload = args.payload.read_bytes()
+    if len(payload) != payload_size:
+        sys.exit('payload size differs from the firmware reservation; refusing to pack')
     tree = args.dtb.read_bytes()
     if tree[:4] != b'\xd0\x0d\xfe\xed' or struct.unpack_from('>I', tree, 4)[0] != len(tree):
         sys.exit('invalid compiled device tree')
 
     with tempfile.TemporaryDirectory(prefix='pack-bootimg-') as tmp:
         scratch = Path(tmp)
-        shim = compile_shim(args.uefi, base, size, requires_header, payload_base, scratch)
+        shim = compile_shim(args.uefi, base, size, requires_header, payload_base, scratch, payload_size)
         combined = shim + firmware + XNUP + struct.pack('<I', len(payload)) + payload
         kernel_bytes = gzip.compress(combined, mtime=0) + tree
         kernel_path = scratch / 'Image.gz-dtb'

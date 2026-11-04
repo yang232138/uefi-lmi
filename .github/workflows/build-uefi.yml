@@ -44,7 +44,7 @@ on:
         type: boolean
         default: false
       firmware_only:
-        description: Build firmware only; reuse an already validated payload locally
+        description: Build firmware only with a 64 MiB window; never append an old 86 MiB payload
         type: boolean
         default: false
       boot_diagnostics:
@@ -135,9 +135,11 @@ jobs:
         # menu has no xnu entry. String edits instead of a patch file so the
         # checkout's line endings do not matter.
         run: |
-          python3 overlay/scripts/adapt.py --unixnu unixnu --uefi uefi
-          python3 overlay/scripts/ramdisk-guard.py --unixnu unixnu
-          python3 overlay/scripts/test-ramdisk-guard.py --unixnu unixnu
+          python3 overlay/scripts/test-payload-window.py --unixnu unixnu
+          payload_bytes=${{ inputs.firmware_only && '0x4000000' || '0x5600000' }}
+          python3 overlay/scripts/adapt.py --unixnu unixnu --uefi uefi --payload-bytes "$payload_bytes"
+          python3 overlay/scripts/ramdisk-guard.py --unixnu unixnu --payload-bytes "$payload_bytes"
+          python3 overlay/scripts/test-ramdisk-guard.py --unixnu unixnu --payload-bytes "$payload_bytes"
 
       - name: Add early firmware diagnostics
         if: ${{ inputs.early_boot_diagnostics }}
@@ -360,6 +362,7 @@ jobs:
             --payload "$payload" \
             --dtb overlay/DeviceTree/lmi.dtb \
             --payload-base 0x93200000 \
+            --memory-map artifact/firmware-memory-map.json \
             --out "$out"
           ls -l "$out"
 

@@ -110,15 +110,24 @@ def patch_entry_arg(uefi):
         'SEC: dec guid')
 
 
-def patch_ramdisk(unixnu):
+def patch_ramdisk(unixnu, payload_bytes=0x5600000):
     """Fall back to the reserved window when the boot loader's initrd is unusable.
 
     The lmi boot loader reports an initrd address outside the RAM the firmware
     maps, and reading it faults (ArmCpuDxe reports a second-level translation
     fault). lmi.toml asks for ramdisk_addr 0x93200000 and MemoryMapLib reserves
-    exactly that 64 MiB, so use it whenever the reported value cannot work.
+    that window. Keep every fallback bound equal to the selected memory map.
     """
-    text_edit(
+    if payload_bytes not in (0x4000000, 0x5600000):
+        raise ValueError('unsupported lmi payload reservation')
+
+    def edit(path, old, new, label):
+        new = new.replace('0x5600000ULL', f'0x{payload_bytes:x}ULL')
+        new = new.replace('reserved window 0x93200000 size 0x4000000 %r',
+                          'reserved payload window %r')
+        text_edit(path, old, new, label)
+
+    edit(
         unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
         '  StartProp = FdtGetProp (Fdt, Chosen, "linux,initrd-start", &StartLength);\n'
         '  EndProp   = FdtGetProp (Fdt, Chosen, "linux,initrd-end", &EndLength);\n'
@@ -157,7 +166,7 @@ def patch_ramdisk(unixnu):
     # the RAM the firmware maps (ArmCpuDxe reports a second-level translation
     # fault with FAR equal to that pointer). Never dereference it in that case;
     # publish the reserved window the boot image asked for.
-    text_edit(
+    edit(
         unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
         '  DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: initrd block device 0x%lx size 0x%lx %r\\n", Start, End - Start, Status));\n'
         '}\n',
@@ -196,7 +205,7 @@ def patch_ramdisk(unixnu):
         '  DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: reserved window 0x93200000 size 0x4000000 %r\\n", Status));\n'
         '}\n',
         'ramdisk publish window')
-    text_edit(
+    edit(
         unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
         '  Dtb = ReadUnaligned64 ((CONST UINT64 *)GET_GUID_HOB_DATA (Hob));\n',
         '  Dtb = ReadUnaligned64 ((CONST UINT64 *)GET_GUID_HOB_DATA (Hob));\n'
@@ -213,11 +222,16 @@ def patch_ramdisk(unixnu):
     # volume (translation fault at FAR 0x119, third level). Publishing the block
     # device as a partition makes PartitionDxe skip it; EnhancedFatDxe then
     # mounts the volume directly.
-    text_edit(
+    edit(
         unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c',
         '  mMedia.LogicalPartition = FALSE;\n',
         '  mMedia.LogicalPartition = TRUE;\n',
         'ramdisk logical partition')
+
+    path = unixnu / 'package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c'
+    source = path.read_text(encoding='utf-8')
+    if source.count(f'0x{payload_bytes:x}ULL') != 4:
+        raise ValueError('unexpected number of ramdisk window bounds')
 
 
 def patch_userdata_chunk(unixnu):
@@ -276,12 +290,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--unixnu', required=True, type=Path, help='UniXNU checkout')
     parser.add_argument('--uefi', type=Path, help='Mu-Silicium checkout (SEC handoff)')
+    parser.add_argument('--payload-bytes', type=lambda value: int(value, 0),
+                        choices=(0x4000000, 0x5600000), default=0x5600000)
     args = parser.parse_args()
 
     text_edit(args.unixnu / 'scripts/unixnu/bootimg.py',
               IMAGE_SIZE_OLD.replace('\n', '\n'), IMAGE_SIZE_NEW,
               'bootimg image_size')
-    patch_ramdisk(args.unixnu)
+    patch_ramdisk(args.unixnu, args.payload_bytes)
     patch_userdata_chunk(args.unixnu)
     patch_adt_root_uuid(args.unixnu)
     if args.uefi:

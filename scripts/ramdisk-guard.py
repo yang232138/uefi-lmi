@@ -53,14 +53,23 @@ LmiPayloadPresent (UINT64 Start, UINT64 End)
 '''
 
 
-def patch(source):
-    if GUARD not in source:
+def guard(payload_bytes):
+    if payload_bytes not in (0x4000000, 0x5600000):
+        raise ValueError('unsupported lmi payload reservation')
+    return GUARD.replace('0x98800000ULL', f'0x{0x93200000 + payload_bytes:x}ULL')
+
+
+def patch(source, payload_bytes=0x5600000):
+    selected = guard(payload_bytes)
+    if 'LmiPayloadPresent (' in source and selected not in source:
+        raise ValueError('ramdisk guard was generated for a different window')
+    if selected not in source:
         anchor = 'STATIC\nVOID\nPublishInitrd (\n'
         if source.count(anchor) != 1:
             raise ValueError('Ramdisk driver changed: PublishInitrd')
-        source = source.replace(anchor, GUARD + anchor, 1)
+        source = source.replace(anchor, selected + anchor, 1)
     for address, limits in [('Start', 'Start, End'),
-                            ('0x93200000ULL', '0x93200000ULL, 0x98800000ULL')]:
+                            ('0x93200000ULL', f'0x93200000ULL, 0x{0x93200000 + payload_bytes:x}ULL')]:
         anchor = f'  mRamBase                = (UINT8 *)(UINTN){address};\n'
         replacement = ('  if (!LmiPayloadPresent (' + limits + ')) {\n'
                        '    DEBUG ((DEBUG_ERROR, "UNIXNURAMDISK: no valid bounded FAT payload; skipping RAM disk\\n"));\n'
@@ -77,7 +86,9 @@ def patch(source):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--unixnu', required=True, type=Path)
+    parser.add_argument('--payload-bytes', type=lambda value: int(value, 0),
+                        choices=(0x4000000, 0x5600000), default=0x5600000)
     args = parser.parse_args()
     path = args.unixnu / DRIVER
-    path.write_text(patch(path.read_text(encoding='utf-8')), encoding='utf-8')
+    path.write_text(patch(path.read_text(encoding='utf-8'), args.payload_bytes), encoding='utf-8')
     print('lmi reserved payload bounds and FAT header guard applied')
