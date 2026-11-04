@@ -10,7 +10,7 @@ pmgr=json.loads((out/'kernel-build-proof.json').read_text())
 assert pmgr['kernel_sha256']==sha(raw) and pmgr['bsd_hook_verified']
 assert pmgr['pmgr_mode_compiled']==pmgr['dt_panic_mode_compiled']==1 and pmgr['pmgr_virtual_entries']==340
 assert pmgr['original_amfi_and_pmgr_executables_verified_unchanged']
-assert '-v serial=3 boot-progress=2 sheng-pmgr=2 lmipro-ufs-handoff=25' in report['kernel_args']
+assert '-v serial=3 boot-progress=2 sheng-pmgr=2 lmipro-ufs-handoff=26' in report['kernel_args']
 cfg=(root/'.config').read_text();assert 'CONFIG_XNU_SHENG_PMGR=y' in cfg
 assert 'CONFIG_XNU_NATIVE_UFS=y' not in cfg
 
@@ -26,7 +26,7 @@ symbols=m.kernel_symbols(raw)
 observer=json.loads((out/'ufs-handoff-build-proof.json').read_text())
 archive=json.loads((out/'pmgr-archive-proof.json').read_text())
 assert observer['combined_archive_sha256']==archive['archive_sha256']==pmgr['pmgr_archive_sha256']
-assert not observer['hardware_register_writes'] and not observer['uic_commands_submitted'] and observer['test_mode']==25 and not observer['storage_commands_submitted'] and not observer['clock_power_or_smmu_state_changed']
+assert observer['hardware_register_writes'] and not observer['uic_commands_submitted'] and observer['test_mode']==26 and not observer['storage_commands_submitted'] and observer['clock_power_or_smmu_state_changed']
 pmgr_call,_=m.find_call(d,symbols,'_bsd_init','_lmipro_pmgr_run',1)
 observer_call,_=m.find_call(d,symbols,'_bsd_init','_lmipro_ufs_handoff_probe',1)
 assert observer_call<pmgr_call
@@ -97,7 +97,7 @@ assert z.unused_data==Path('overlay/DeviceTree/lmi.dtb').read_bytes()
 meta=dict(image_sha256=sha(out/'boot.img'),shim_bytes=shim,firmware_sha256=sha(fd),payload_sha256=sha(volume),header_version=version,page_bytes=page,report_source='parsed actual packed image and round-tripped exact inputs')
 (out/'boot.json').write_text(json.dumps(meta,indent=2)+'\n')
 proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel_sha256=hashlib.sha256(patched).hexdigest(),
- fd_sha256=sha(fd),dt_panic_region_enabled=True,fixed_bcm_panic_mapping_removed=True,ufs_handoff_mode=25,hardware_register_writes=False,uic_commands_submitted=False,storage_commands_submitted=False,pmgr_mode_compiled=1,pmgr_runtime_mode=2,pmgr_virtual_entries=340,pmgr_bsd_hook_verified=True,original_amfi_and_pmgr_executables_unchanged=True,functional_power_backend=False,entry_hooks_verified=True,panic_hooks_verified=True,other_kernel_bytes_unchanged=True,
+ fd_sha256=sha(fd),dt_panic_region_enabled=True,fixed_bcm_panic_mapping_removed=True,ufs_handoff_mode=26,hardware_register_writes=True,uic_commands_submitted=False,storage_commands_submitted=False,pmgr_mode_compiled=1,pmgr_runtime_mode=2,pmgr_virtual_entries=340,pmgr_bsd_hook_verified=True,original_amfi_and_pmgr_executables_unchanged=True,functional_power_backend=False,entry_hooks_verified=True,panic_hooks_verified=True,other_kernel_bytes_unchanged=True,
  official_probe_replay_identical=True,reset_delay_seconds=0,timed_reset=False,reset_checkpoint='none; continue normal execution and display actual panic',
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),
@@ -106,8 +106,11 @@ proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))
 
-assert observer['smmu_audit'] and observer['mmio_write_offsets']==[]
+assert observer['smmu_audit'] and observer['mmio_write_offsets']==[0x20,0x24,0x50,0x54,0x58,0x60]
 assert observer['context_geometry_from_id1'] and observer['stream_ids']==[0xe0,0x4e0]
 
-assert observer["table_census"] and observer["table_snapshot_compare"] and observer["table_scan_cap"]==128
-assert observer["context_banks_read"] is False and observer["board_stream_routing_confirmed"] is False
+assert observer["submission_limit"]==1 and observer["poll_limit"]==100000
+assert observer["context_banks_read"] is True and observer["board_stream_routing_confirmed"] is False
+
+assert observer["submission_limit"]==1 and observer["dma_retained_until_reboot"]
+assert not observer["clock_power_writes"] and not observer["controller_reset"]

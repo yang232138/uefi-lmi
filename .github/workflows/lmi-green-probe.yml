@@ -1,8 +1,8 @@
-name: LMIPRO powered UFS controller precheck
+name: LMIPRO bounded NOP transport test
 'on':
   push:
     branches:
-    - codex/lmipro-storage-precheck-20261104
+    - codex/lmipro-bounded-nop-20261104
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: ee472385743ebd16941ab14892dcb9d02e219d15
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: f820343ceffd47f568607166c7acbf049ef5a6cc
+      DEVICE_REF: bce8a45ed0ffc53a6456d5168b1494b51a07a758
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -55,6 +55,8 @@ jobs:
       run: |
         c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_uic.cpp -o /tmp/test-lmipro-uic
         /tmp/test-lmipro-uic
+        c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_nop.cpp -o /tmp/test-lmipro-nop
+        /tmp/test-lmipro-nop
     - uses: actions/setup-python@v5
       with:
         python-version: '3.13'
@@ -200,7 +202,7 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
-        key: lmi-kernel-storage-precheck-v1-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
+        key: lmi-kernel-bounded-nop-v1-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
           }}-${{ steps.source-revisions.outputs.config_sha }}-0x8011
     - name: Select flag-off reference only on a source cache miss
       run: 'python3 - <<''PY''
@@ -253,7 +255,7 @@ jobs:
       if: steps.kernel-cache.outputs.cache-hit != 'true'
     - name: Verify actual PMGR link and original executable contracts
       run: 'python3 overlay/diagnostics/verify_lmipro_pmgr_kernel.py --work unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro
-        --out output --device-revision f820343ceffd47f568607166c7acbf049ef5a6cc
+        --out output --device-revision bce8a45ed0ffc53a6456d5168b1494b51a07a758
 
         '
       if: steps.kernel-cache.outputs.cache-hit != 'true'
@@ -316,7 +318,7 @@ jobs:
 
         proof=json.loads((out/''kernel-build-proof.json'').read_text())
 
-        assert proof[''device_revision'']==''f820343ceffd47f568607166c7acbf049ef5a6cc''
+        assert proof[''device_revision'']==''bce8a45ed0ffc53a6456d5168b1494b51a07a758''
 
         assert proof[''unixnu_revision'']==''ee472385743ebd16941ab14892dcb9d02e219d15''
 
@@ -357,7 +359,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-ufs-readonly-handoff
+        name: lmi-ufs-bounded-nop
         path: 'output/boot.img
 
           output/boot.json
