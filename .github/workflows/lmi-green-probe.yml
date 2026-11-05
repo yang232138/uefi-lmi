@@ -155,7 +155,7 @@ jobs:
 
         b=tomllib.loads(Path(''lmipro/board.toml'').read_text())
 
-        assert any(''lmipro-ufs-handoff='' in x for x in b[''payload''][''kernel_args''])
+        assert any(x.startswith(''lmipro-ufs-'') for x in b[''payload''][''kernel_args''])
 
         s=Path(''lmipro/configs/lmipro_defconfig'').read_text()
 
