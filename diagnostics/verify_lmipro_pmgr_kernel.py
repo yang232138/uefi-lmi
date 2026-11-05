@@ -43,8 +43,11 @@ shutil.copyfile(build/'build-report.json',a.out/'pmgr-archive-proof.json')
 shutil.copyfile(kernel,a.out/'kernel-original.macho')
 shutil.copyfile(kernel.with_suffix('.json'),a.out/'kernel-prelink.json')
 shutil.copyfile(a.work/'.config',a.out/'kernel.config')
-proof=dict(unixnu_revision='ee472385743ebd16941ab14892dcb9d02e219d15',
-           device_revision=a.device_revision,
+revision=lambda repo: subprocess.check_output(['git','-C',repo,'rev-parse','HEAD'],text=True).strip()
+device_revision=revision('lmipro')
+assert a.device_revision==device_revision,'the recorded device revision is not the built one'
+proof=dict(unixnu_revision=revision('unixnu'),
+           device_revision=device_revision,
            kernel_sha256=hashlib.sha256(data).hexdigest(),kernel_bytes=len(data),
            pmgr_archive_sha256=archive_sha,pmgr_virtual_entries=340,
            pmgr_mode_compiled=1,dt_panic_mode_compiled=1,bsd_hook_verified=True,
