@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 90
     env:
       UNIXNU_REPO: yang232138/UniXNU
-      UNIXNU_REF: ee472385743ebd16941ab14892dcb9d02e219d15
+      UNIXNU_REF: 9f5acda0e839399075576a8c2dee23a39e6ec6fd
       DEVICE_REPO: yang232138/lmipro
       DEVICE_REF: 761809f2184c841612e295a08959664ce52ac7a6
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
@@ -312,7 +312,7 @@ jobs:
 
         assert proof[''device_revision'']==''761809f2184c841612e295a08959664ce52ac7a6''
 
-        assert proof[''unixnu_revision'']==''ee472385743ebd16941ab14892dcb9d02e219d15''
+        assert proof[''unixnu_revision'']==''9f5acda0e839399075576a8c2dee23a39e6ec6fd''
 
         assert proof[''kernel_sha256'']==hashlib.sha256((root/''kernel/kernel.macho'').read_bytes()).hexdigest()
 
