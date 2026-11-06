@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: aa38c2f2587f02c8eec82147580db6b1b74edb0e
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 06cd2c0ecb70958182e41d7acb27800eb3c5e3be
+      DEVICE_REF: 13c405c7857415f22e29eecd942ad4e2c6efa8fc
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
