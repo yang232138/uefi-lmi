@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 90
     env:
       UNIXNU_REPO: yang232138/UniXNU
-      UNIXNU_REF: 5af5994c195011a328a4c89d261223812e24d764
+      UNIXNU_REF: 413ac19cd83d8b00bd54eed11204996e168b003c
       DEVICE_REPO: yang232138/lmipro
       DEVICE_REF: 8fe1d984788f30f04b3c61fd3e3320cb1d018235
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
