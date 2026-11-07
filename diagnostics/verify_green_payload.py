@@ -23,7 +23,7 @@ d=raw.read_bytes();assert len(d)==len(patched);m.load_segments(d);names=m.rebase
 word=lambda va:struct.unpack_from('<I',patched,m.file_offset(va))[0]
 symbols=m.kernel_symbols(raw)
 for required in ['_lmipro_capture_mount_output', '_lmipro_mount_output', '_lmipro_mount_output_used']:
-    assert required in symbols, 'Missing linked mount capture: '+required
+    assert required in symbols.values(), 'Missing linked mount capture: '+required
 assert b'MOUNT LOG v1 signal=%d exit=%d bytes=%u' in d
 assert b'END MOUNT LOG' in d
 assert b'native_owner_cache_native_union' in d
