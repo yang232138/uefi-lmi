@@ -22,6 +22,12 @@ spec=importlib.util.spec_from_file_location('official_entry',script);m=importlib
 d=raw.read_bytes();assert len(d)==len(patched);m.load_segments(d);names=m.rebase(raw,d)
 word=lambda va:struct.unpack_from('<I',patched,m.file_offset(va))[0]
 symbols=m.kernel_symbols(raw)
+for required in ['_lmipro_capture_mount_output', '_lmipro_mount_output', '_lmipro_mount_output_used']:
+    assert required in symbols, 'Missing linked mount capture: '+required
+assert b'MOUNT LOG v1 signal=%d exit=%d bytes=%u' in d
+assert b'END MOUNT LOG' in d
+assert b'native_owner_cache_native_union' in d
+
 
 observer=json.loads((out/'ufs-handoff-build-proof.json').read_text())
 archive=json.loads((out/'pmgr-archive-proof.json').read_text())
@@ -101,7 +107,13 @@ proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel
  official_probe_replay_identical=True,reset_delay_seconds=0,timed_reset=False,reset_checkpoint='none; continue normal execution and display actual panic',
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),
- firmware_source='identical photo-qualified FD720481eb preserved as a pinned compressed branch input',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')
+ firmware_source='exact union1 baseline firmware f95578af73b83c818ab07dc2210e0a435cbb4c9a9a962de3405d5da05921624b',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')
+proof.update(mount_output_capture=True, mount_capture_pid=3, mount_capture_fds=[1,2],
+ mount_capture_tail_bytes=640, mount_capture_max_bytes_per_call=640,
+ baseline_boot_sha256='c1a30dc17b86594d4cf974d7cf9fd8628401acde4e0bf3879edda9bcc52e81a4',
+ baseline_cloud_run=42333251284, userdata_reflash_required=False,
+ storage_boolean_scope='handoff observer only; the baseline UFS block driver performs reads',
+ mount_failure_cause='unconfirmed until handset stderr is captured')
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))

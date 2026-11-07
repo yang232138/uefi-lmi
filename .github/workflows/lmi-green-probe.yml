@@ -1,8 +1,8 @@
-name: lmi documented read-only UFS handoff observation
+name: LMIPRO union1 mount error capture
 'on':
   push:
     branches:
-    - lmi-green-probe-20261031
+    - codex/lmipro-union1-mount-log-20261108
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: 2440fb161e5caf8a27dcfe72c9ce9aaf01e57871
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 26a16e43f0a708e90c555a3bbbbfd0d27db413a7
+      DEVICE_REF: 9f75fe3ad77f81f6e02c3d59e0f610e1b9b22e95
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -351,7 +351,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-ufs-readonly-handoff
+        name: lmi-union1-mount-log
         path: 'output/boot.img
 
           output/boot.json
@@ -395,4 +395,4 @@ jobs:
 
           '
         if-no-files-found: warn
-        retention-days: 3
+        retention-days: 14
