@@ -16,9 +16,9 @@ jobs:
     timeout-minutes: 90
     env:
       UNIXNU_REPO: yang232138/UniXNU
-      UNIXNU_REF: b835501c6912a4a27cc5d35198b6b79f54209905
+      UNIXNU_REF: 2440fb161e5caf8a27dcfe72c9ce9aaf01e57871
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 8fe1d984788f30f04b3c61fd3e3320cb1d018235
+      DEVICE_REF: 080899e50bdfac8dd4af9cc0277c99ca543c58e8
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
