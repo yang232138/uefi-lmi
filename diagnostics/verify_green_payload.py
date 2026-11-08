@@ -26,6 +26,9 @@ for required in ['_lmipro_capture_mount_output', '_lmipro_mount_output', '_lmipr
     assert required in symbols.values(), 'Missing linked mount capture: '+required
 assert b'MOUNT LOG v1 signal=%d exit=%d bytes=%u' in d
 assert b'END MOUNT LOG' in d
+assert '_lmipro_publish_boot_identity' in symbols.values()
+assert b'Lmipro.SHNGROOT.ImageSet.v1' in d
+assert b'LMIPRO boot identity publication failed' in d
 assert b'native_owner_cache_native_union' in d
 
 
@@ -113,7 +116,7 @@ proof.update(mount_output_capture=True, mount_capture_pid=3, mount_capture_fds=[
  baseline_boot_sha256='c1a30dc17b86594d4cf974d7cf9fd8628401acde4e0bf3879edda9bcc52e81a4',
  baseline_cloud_run=42333251284, userdata_reflash_required=False,
  storage_boolean_scope='handoff observer only; the baseline UFS block driver performs reads',
- mount_failure_cause='unconfirmed until handset stderr is captured')
+ mount_failure_cause='handset stderr confirms missing boot-manifest-hash', boot_identity_namespace='Lmipro.SHNGROOT.ImageSet.v1', boot_identity_assurance='checksum and pinned header metadata only, not full installed content authentication')
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))

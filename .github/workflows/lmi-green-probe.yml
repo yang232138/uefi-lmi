@@ -1,8 +1,8 @@
-name: LMIPRO union1 mount error capture
+name: LMIPRO SHNGROOT boot identity
 'on':
   push:
     branches:
-    - codex/lmipro-union1-mount-log-20261108
+    - codex/lmipro-boot-identity-20261108
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: 2440fb161e5caf8a27dcfe72c9ce9aaf01e57871
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 7d92ec0e970ab089c112d96c9b1d658b9eb56146
+      DEVICE_REF: f333219ffaf5c20c7a5d5179aa3ad13218f4cd2f
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -351,7 +351,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-union1-mount-log
+        name: lmi-boot-identity
         path: 'output/boot.img
 
           output/boot.json
