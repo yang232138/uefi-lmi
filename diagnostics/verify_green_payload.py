@@ -117,6 +117,25 @@ proof.update(mount_output_capture=True, mount_capture_pid=3, mount_capture_fds=[
  baseline_cloud_run=42333251284, userdata_reflash_required=False,
  storage_boolean_scope='handoff observer only; the baseline UFS block driver performs reads',
  mount_failure_cause='handset stderr confirms missing boot-manifest-hash', boot_identity_namespace='Lmipro.SHNGROOT.ImageSet.v1', boot_identity_assurance='checksum and pinned header metadata only, not full installed content authentication')
+# Check the actual Data payload, generated mount identity and linked RAM transport.
+seed=json.loads((out/'data-seed.json').read_text())
+assert report['data_ramdisk_sha256']==seed['packed_sha256']
+assert 'CONFIG_XNU_NATIVE_RAM_BLOCK=y' in cfg and not seed['persistent']
+for name in ['_native_ram_block_volume_seed','_native_ram_block_ready','_lmipro_data_status','_lmipro_data_stage']:
+ assert name in symbols.values(),name
+assert seed['volume_uuid'].encode()+b'\0' in d
+assert bytes.fromhex(seed['sha256']) in d
+assert b'LMIPRO Data mount failed' in d and b'LMIPRO writable RAM Data mounted' in d
+for leaf in ['scratch-data.img','kernel.macho.adt']:
+ subprocess.run(['mcopy','-o','-i',str(volume),'::EFI/UniXNU/Payloads/'+leaf,str(out/leaf)],check=True)
+assert sha(out/'scratch-data.img')==seed['packed_sha256']
+assert b'PackedRAMDisk' in (out/'kernel.macho.adt').read_bytes()
+assert 'native_ufs_store_write' not in symbols.values() # no board persistent write implementation
+bindings=root/'tree/build/ram-block/lmipro-bindings.json'
+assert bindings.is_file()
+shutil.copyfile(bindings,out/'ram-block-bindings.json')
+proof.update(volatile_data=True,data_seed=seed,data_mounted_on_handset=False,userdata_reflash_required=False)
+
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))
