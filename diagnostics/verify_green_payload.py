@@ -130,7 +130,7 @@ for leaf in ['scratch-data.img','kernel.macho.adt']:
  subprocess.run(['mcopy','-o','-i',str(volume),'::EFI/UniXNU/Payloads/'+leaf,str(out/leaf)],check=True)
 assert sha(out/'scratch-data.img')==seed['packed_sha256']
 assert b'PackedRAMDisk' in (out/'kernel.macho.adt').read_bytes()
-assert 'native_ufs_store_write' not in symbols.values() # no board persistent write implementation
+assert '_native_ufs_store_write' not in symbols.values() # no board persistent write implementation
 bindings=root/'tree/build/ram-block/lmipro-bindings.json'
 assert bindings.is_file()
 shutil.copyfile(bindings,out/'ram-block-bindings.json')
