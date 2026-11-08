@@ -327,7 +327,7 @@ jobs:
         '
     - name: Build the trust cache bundle
       run: "cd unixnu\n# Extract the two modules the payload trust cache carries. The board has\n# no [ipsw] fetch list, so\
-        \ name them explicitly.\n./unixnu ipsw fetch -D ../lmipro StaticTrustCache \"Cryptex1,SystemTrustCache\"\n# The extracted\
+        \ name them explicitly.\n./unixnu ipsw fetch -D ../lmipro StaticTrustCache \"Cryptex1,SystemTrustCache\" KernelCache\n# The extracted\
         \ files are named after the IPSW members (044-...dmg.trustcache),\n# so pair them by the component recorded in the\
         \ sidecar JSON.\nstatic=$(grep -l '\"component\": \"StaticTrustCache\"' out/ipsw/*/*.json | head -1)\nsystem=$(grep\
         \ -l '\"component\": \"Cryptex1,SystemTrustCache\"' out/ipsw/*/*.json | head -1)\nstatic=${static%.json}\nsystem=${system%.json}\n\
