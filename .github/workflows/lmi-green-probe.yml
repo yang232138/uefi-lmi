@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: 2440fb161e5caf8a27dcfe72c9ce9aaf01e57871
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 67861261ae8a4ba65bd01e8a2b4298fec57566fd
+      DEVICE_REF: 65c72a1ce414b88126743199c4f51f296481d160
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -182,14 +182,47 @@ jobs:
         ./unixnu status -D ../lmipro
 
         '
-    - name: Prepare exact original-OS scratch Data and bind its identity
-      run: 'cd unixnu
+    - name: Download the exact host-tested Data seed
+      uses: actions/download-artifact@v4
+      with:
+        name: lmi-volatile-data
+        run-id: 42480654190
+        github-token: ${{ github.token }}
+        path: data-import
+    - name: Verify and install pinned volatile Data input
+      run: 'python3 - <<''PY''
 
-        ./unixnu ipsw fetch -D ../lmipro OS
+        from pathlib import Path
 
-        cd ..
+        import hashlib,json,shutil
 
-        python3 overlay/diagnostics/make-data-seed.py
+        source=Path(''data-import/output'');out=Path(''output'');out.mkdir(exist_ok=True)
+
+        d=json.loads((source/''data-seed.json'').read_text());b=(source/''data-seed/data-32.dbr'').read_bytes()
+
+        assert hashlib.sha256(b).hexdigest()==d[''packed_sha256'']==''2434ed1fdfc09f518fd6b18e6ef77ea94aff5090ed98a8d29018dc013cb42c13''
+
+        assert d[''sha256'']==''8e9ff98f62a4dfc5f8e82ef30f435cfe035ab9830fac59210f8f6a67a5ef097c''
+
+        assert d[''volume_uuid'']==''32EC6E37-C75B-4305-AA27-C2FEA4E67F30'' and d[''bytes'']==33554432
+
+        assert d[''host_timezone_write_probe''] and not d[''persistent'']
+
+        (out/''data-seed'').mkdir(exist_ok=True);(out/''data-seed/data-32.dbr'').write_bytes(b)
+
+        p=Path(''lmipro/patches/xnu/lmipro-data-mount.patch'').read_bytes()
+
+        assert d[''volume_uuid''].encode() in p and b''_REQUIRED'' not in p
+
+        d[''rendered_patch_sha256'']=hashlib.sha256(p).hexdigest()
+
+        (out/''data-seed.json'').write_text(json.dumps(d,indent=2)+''\n'')
+
+        (out/''rendered-lmipro-data-mount.patch'').write_bytes(p)
+
+        print(json.dumps(d,indent=2))
+
+        PY
 
         '
     - name: Record immutable source revisions for the kernel cache
