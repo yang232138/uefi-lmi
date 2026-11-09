@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 31b40db8d87e3415184aa7ee15886eb75ebee716
+      DEVICE_REF: 80dd8a3a8dd80ee942bf1372a8a297b0234cc272
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -479,6 +479,11 @@ jobs:
           output/data-watch-proof.json
 
           unixnu/out/**/tree/build/lmipro-ufs-block/build-proof.json
+
+
+          unixnu/out/**/tree/build/pmgr-reference/lmipro-reference.macho
+
+          unixnu/out/**/tree/build/pmgr-reference/lmipro-reference.json
 
           '
         if-no-files-found: warn
