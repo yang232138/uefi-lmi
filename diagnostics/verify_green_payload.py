@@ -124,13 +124,22 @@ for name in ['_native_ram_block_volume_seed','_native_ram_block_ready','_lmipro_
     assert name in symbols.values(),name
 assert seed['volume_uuid'].encode()+b'\0' in d and bytes.fromhex(seed['sha256']) in d
 assert b'LMIPRO Data mount failed' in d and b'LMIPRO writable RAM Data mounted' in d
-assert '_native_ufs_store_write' not in symbols.values()
+# Verify pure-RAM selection and refusal in the actual linked ARM64 code.
+byname={name:va for va,name in symbols.items()}
+for name,value in [('mode',0),('read',0),('write',0),('sync',0),('gpt_check',255)]:
+    va=byname['_native_ufs_store_'+name]
+    assert struct.unpack_from('<2I',d,m.file_offset(va))==(0x52800000|(value<<5),0xd65f03c0),name
+assert '_native_ufs_store_open' in byname
+
 for leaf in ['scratch-data.img','kernel.macho.adt']:
     subprocess.run(['mcopy','-o','-i',str(volume),'::EFI/UniXNU/Payloads/'+leaf,str(out/leaf)],check=True)
 assert sha(out/'scratch-data.img')==seed['packed_sha256']
 assert b'PackedRAMDisk' in (out/'kernel.macho.adt').read_bytes()
 bindings=root/'tree/build/ram-block/lmipro-bindings.json'
 assert bindings.is_file()
+binding_proof=json.loads(bindings.read_text())
+assert binding_proof['persistence_mode']==0 and binding_proof['persistence_io_result']==0
+assert binding_proof['volatile_provider_sha256']==sha(Path('lmipro/package/LmiproVolatileStore.c'))
 shutil.copyfile(bindings,out/'ram-block-bindings.json')
 proof.update(volatile_data=True,data_seed=seed,data_mounted_on_handset=False,userdata_reflash_required=False)
 

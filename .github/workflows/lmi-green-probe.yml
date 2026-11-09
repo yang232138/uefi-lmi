@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: ad3199252b8233a690fdc5cb6d7c6a585b8f8871
+      DEVICE_REF: c56d314cf6e52fa904830a9f4135e2b0b361a16e
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -268,6 +268,13 @@ jobs:
 
         '
       if: steps.kernel-cache.outputs.cache-hit != 'true'
+    - name: Check volatile persistence refusal
+      run: 'cc -std=c11 -O2 -Wall -Wextra -Werror lmipro/package/LmiproVolatileStore.c lmipro/tests/test_lmipro_volatile_store.c
+        -o /tmp/lmipro-volatile-store
+
+        /tmp/lmipro-volatile-store
+
+        '
     - name: Build the fresh flag-off reference candidate
       run: 'cd unixnu
 
@@ -455,6 +462,11 @@ jobs:
           output/data-seed/data-32.dbr
 
           output/ram-block-bindings.json
+
+
+          unixnu/out/**/tree/build/ram-block/lmipro-bindings.json
+
+          unixnu/out/**/tree/build/ram-block/LmiproVolatileStore.o
 
           '
         if-no-files-found: warn
