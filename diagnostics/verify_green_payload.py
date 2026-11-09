@@ -123,7 +123,8 @@ assert not seed['persistent'] and seed['bytes']==33554432
 for name in ['_native_ram_block_volume_seed','_native_ram_block_ready','_lmipro_data_status','_lmipro_data_stage']:
     assert name in symbols.values(),name
 assert seed['volume_uuid'].encode()+b'\0' in d and bytes.fromhex(seed['sha256']) in d
-assert b'LMIPRO Data mount failed' in d and b'LMIPRO writable RAM Data mounted' in d
+assert b'LMIPRO Data mount failed' in d
+assert (b'LMIPRO writable RAM Data mounted' in d)==('CONFIG_XNU_BOOT_PROGRESS=y' in cfg)
 # Verify pure-RAM selection and refusal in the actual linked ARM64 code.
 byname={name:va for va,name in symbols.items()}
 for name,value in [('mode',0),('read',0),('write',0),('sync',0),('gpt_check',255)]:
