@@ -1,8 +1,8 @@
-name: lmi documented read-only UFS handoff observation
+name: LMIPRO restore mount identity on current source
 'on':
   push:
     branches:
-    - lmi-green-probe-20261031
+    - codex/lmipro-mount-regression-20261109
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 9508f9ef07c9f894aaaab546cb8d7e8c62cfeb1c
+      DEVICE_REF: db00a1bfd2ffc2d3147584f70e6c5f08f76a57fc
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -186,7 +186,8 @@ jobs:
 
         echo "device_sha=$(git -C lmipro rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-        echo "config_sha=$(shasum -a 256 unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/.config | cut -d'' '' -f1)" >> "$GITHUB_OUTPUT"
+        echo "config_sha=$(shasum -a 256 unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/.config | cut -d'' '' -f1)"
+        >> "$GITHUB_OUTPUT"
 
         '
     - name: Restore the built kernel
@@ -194,7 +195,7 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
-        key: lmi-kernel-pmgr-v4-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
+        key: mount-recovery-v1-lmi-kernel-pmgr-v4-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
           }}-${{ steps.source-revisions.outputs.config_sha }}-0x8011
     - name: Select flag-off reference only on a source cache miss
       run: 'python3 - <<''PY''
@@ -277,7 +278,8 @@ jobs:
 
         text=source.read_text()
 
-        assert ''#if defined(PLATFORM_PANIC_LOG_PADDR) && !(defined(XNU_DT_PANIC_REGION) && XNU_DT_PANIC_REGION)'' in text
+        assert ''#if defined(PLATFORM_PANIC_LOG_PADDR) && !(defined(XNU_DT_PANIC_REGION) && XNU_DT_PANIC_REGION)''
+        in text
 
         report=dict(record=record,per_file_flag_in_compile_record=flag_in_record,dt_panic_build_mode=mode,source_text=text,source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),kernel_sha256=hashlib.sha256((root/''kernel/kernel.macho'').read_bytes()).hexdigest())
 
@@ -296,7 +298,7 @@ jobs:
       if: steps.kernel-cache.outputs.cache-hit != 'true'
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
-        key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
+        key: mount-recovery-v1-${{ steps.kernel-cache.outputs.cache-primary-key }}
     - name: Load and qualify PMGR evidence before constructing the payload
       run: 'python3 - <<''PY''
 
@@ -326,32 +328,34 @@ jobs:
 
         '
     - name: Build the trust cache bundle
-      run: "cd unixnu\n# Extract the two modules the payload trust cache carries. The board has\n# no [ipsw] fetch list, so\
-        \ name them explicitly.\n./unixnu ipsw fetch -D ../lmipro StaticTrustCache \"Cryptex1,SystemTrustCache\" KernelCache\n# The extracted\
-        \ files are named after the IPSW members (044-...dmg.trustcache),\n# so pair them by the component recorded in the\
-        \ sidecar JSON.\nstatic=$(grep -l '\"component\": \"StaticTrustCache\"' out/ipsw/*/*.json | head -1)\nsystem=$(grep\
-        \ -l '\"component\": \"Cryptex1,SystemTrustCache\"' out/ipsw/*/*.json | head -1)\nstatic=${static%.json}\nsystem=${system%.json}\n\
-        echo \"static: $static\"\necho \"system: $system\"\ntest -f \"$static\" && test -f \"$system\"\npython3 ../overlay/scripts/build-trust-bundle.py\
-        \ \\\n  --static \"$static\" \\\n  --system \"$system\" \\\n  --output trust.bundle \\\n  --report trust.json\ncat\
-        \ trust.json\n"
+      run: "cd unixnu\n# Extract the two modules the payload trust cache carries. The board has\n# no [ipsw] fetch\
+        \ list, so name them explicitly.\n./unixnu ipsw fetch -D ../lmipro StaticTrustCache \"Cryptex1,SystemTrustCache\"\
+        \ KernelCache\n# The extracted files are named after the IPSW members (044-...dmg.trustcache),\n# so pair\
+        \ them by the component recorded in the sidecar JSON.\nstatic=$(grep -l '\"component\": \"StaticTrustCache\"\
+        ' out/ipsw/*/*.json | head -1)\nsystem=$(grep -l '\"component\": \"Cryptex1,SystemTrustCache\"' out/ipsw/*/*.json\
+        \ | head -1)\nstatic=${static%.json}\nsystem=${system%.json}\necho \"static: $static\"\necho \"system: $system\"\
+        \ntest -f \"$static\" && test -f \"$system\"\npython3 ../overlay/scripts/build-trust-bundle.py \\\n  --static\
+        \ \"$static\" \\\n  --system \"$system\" \\\n  --output trust.bundle \\\n  --report trust.json\ncat trust.json\n"
     - name: Build the payload
       env:
         UNIXNU_UNIQUE_CHIP_ID: '0x8011'
-      run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload -D ../lmipro\
-        \ \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache trust.bundle \\\n  --kernel-arg amfi=0x4\n"
+      run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload\
+        \ -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache\
+        \ trust.bundle \\\n  --kernel-arg amfi=0x4\n"
     - name: Pack the boot image with the payload in the kernel
-      run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact is missing\
-        \ the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\" || { echo 'no\
-        \ payload volume produced'; exit 1; }\nout=unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/boot/boot.img\npython3 overlay/scripts/pack_bootimg.py\
-        \ \\\n  --uefi uefi \\\n  --fd \"$fd\" \\\n  --payload \"$payload\" \\\n  --dtb overlay/DeviceTree/lmi.dtb \\\n  --payload-base\
-        \ 0x93200000 \\\n  --out \"$out\"\nls -l \"$out\"\n"
+      run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact\
+        \ is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\"\
+        \ || { echo 'no payload volume produced'; exit 1; }\nout=unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/boot/boot.img\n\
+        python3 overlay/scripts/pack_bootimg.py \\\n  --uefi uefi \\\n  --fd \"$fd\" \\\n  --payload \"$payload\"\
+        \ \\\n  --dtb overlay/DeviceTree/lmi.dtb \\\n  --payload-base 0x93200000 \\\n  --out \"$out\"\nls -l \"\
+        $out\"\n"
     - name: Verify actual payload probe installation and collect inputs
       run: python3 overlay/diagnostics/verify_green_payload.py
     - name: Upload the boot image with the payload
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-ufs-readonly-handoff
+        name: lmi-mount-recovery
         path: 'output/boot.img
 
           output/boot.json
@@ -359,6 +363,8 @@ jobs:
           output/payload.json
 
           output/verification.json
+
+          output/mount-recovery-proof.json
 
           output/test-board.toml
 

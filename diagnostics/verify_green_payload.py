@@ -22,6 +22,20 @@ spec=importlib.util.spec_from_file_location('official_entry',script);m=importlib
 d=raw.read_bytes();assert len(d)==len(patched);m.load_segments(d);names=m.rebase(raw,d)
 word=lambda va:struct.unpack_from('<I',patched,m.file_offset(va))[0]
 symbols=m.kernel_symbols(raw)
+for required in ['_lmipro_capture_mount_output','_lmipro_mount_output','_lmipro_publish_boot_identity']:
+    assert required in symbols.values(), 'Missing recovery implementation: '+required
+assert b'MOUNT LOG v1 signal=%d exit=%d bytes=%u' in d
+assert b'LMIPRO boot identity publication failed' in d
+assert b'Lmipro.SHNGROOT.ImageSet.v1' in d
+assert 'CONFIG_XNU_OWNER_CACHE_STARTUP=y' in cfg
+assert 'CONFIG_XNU_OWNER_UNION_SYSTEMOS=y' in cfg
+assert 'CONFIG_XNU_OWNER_DATA_MOUNT=y' not in cfg
+assert 'CONFIG_XNU_NATIVE_RAM_BLOCK=y' not in cfg
+recovery=dict(mount_output_capture=True,boot_identity_namespace='Lmipro.SHNGROOT.ImageSet.v1',
+    raw_kernel_sha256=sha(raw),device_revision=os.environ['DEVICE_REF'],framework_revision=os.environ['UNIXNU_REF'],
+    data_enabled=False,hardware_tested=False)
+(out/'mount-recovery-proof.json').write_text(json.dumps(recovery,indent=2)+'\n')
+
 
 observer=json.loads((out/'ufs-handoff-build-proof.json').read_text())
 archive=json.loads((out/'pmgr-archive-proof.json').read_text())
