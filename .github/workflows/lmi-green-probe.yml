@@ -1,8 +1,8 @@
-name: LMIPRO current mount recovery plus audited volatile Data
+name: LMIPRO opt-in Data stall checkpoint
 'on':
   push:
     branches:
-    - codex/lmipro-current-data-20261109
+    - codex/lmipro-data-watch-20261109
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 0e5ff81210b1b6567d5887a64bf33b508727b686
+      DEVICE_REF: 31b40db8d87e3415184aa7ee15886eb75ebee716
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -275,6 +275,12 @@ jobs:
         /tmp/lmipro-volatile-store
 
         '
+    - name: Check board Data snapshot semantics
+      run: 'c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_data_watch.cpp -o /tmp/lmipro-data-watch
+
+        /tmp/lmipro-data-watch
+
+        '
     - name: Build the fresh flag-off reference candidate
       run: 'cd unixnu
 
@@ -396,7 +402,8 @@ jobs:
         UNIXNU_UNIQUE_CHIP_ID: '0x8011'
       run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload\
         \ -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache\
-        \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr\n"
+        \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr \\\n  --kernel-arg\
+        \ lmipro-data-watch=30\n"
     - name: Pack the boot image with the payload in the kernel
       run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact\
         \ is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\"\
@@ -410,7 +417,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-current-volatile-data
+        name: lmi-data-checkpoint
         path: 'output/boot.img
 
           output/boot.json
@@ -467,6 +474,11 @@ jobs:
           unixnu/out/**/tree/build/ram-block/lmipro-bindings.json
 
           unixnu/out/**/tree/build/ram-block/LmiproVolatileStore.o
+
+
+          output/data-watch-proof.json
+
+          unixnu/out/**/tree/build/lmipro-ufs-block/build-proof.json
 
           '
         if-no-files-found: warn

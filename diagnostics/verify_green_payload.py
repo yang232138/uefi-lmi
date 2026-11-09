@@ -144,6 +144,17 @@ assert binding_proof['volatile_provider_sha256']==sha(Path('lmipro/package/Lmipr
 shutil.copyfile(bindings,out/'ram-block-bindings.json')
 proof.update(volatile_data=True,data_seed=seed,data_mounted_on_handset=False,userdata_reflash_required=False)
 
+assert 'lmipro-data-watch=30' in report['kernel_args'].split()
+assert b'LMIPRO DATA CHECKPOINT timeout=%u' in d
+assert any('lmiproDataWatchThread' in name for name in symbols.values())
+assert struct.unpack_from('<i',d,m.file_offset(byname['_lmipro_data_stage']))[0]==-2
+watch_build=json.loads((root/'tree/build/lmipro-ufs-block/build-proof.json').read_text())
+watch_header=sha(Path('lmipro/package/LmiproDataWatch.h'))
+assert watch_build['data_watch_header_sha256']==watch_header
+(out/'data-watch-proof.json').write_text(json.dumps(dict(header_sha256=watch_header,
+    kernel_sha256=sha(raw),initial_data_stage=-2,delay_seconds=30,default_off=True,
+    actual_watch_thread_linked=True,hardware_checkpoint_observed=False),indent=2)+'\n')
+
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))
