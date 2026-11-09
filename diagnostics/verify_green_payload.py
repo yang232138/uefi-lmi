@@ -30,10 +30,10 @@ assert b'Lmipro.SHNGROOT.ImageSet.v1' in d
 assert 'CONFIG_XNU_OWNER_CACHE_STARTUP=y' in cfg
 assert 'CONFIG_XNU_OWNER_UNION_SYSTEMOS=y' in cfg
 assert 'CONFIG_XNU_OWNER_DATA_MOUNT=y' not in cfg
-assert 'CONFIG_XNU_NATIVE_RAM_BLOCK=y' not in cfg
+assert 'CONFIG_XNU_NATIVE_RAM_BLOCK=y' in cfg
 recovery=dict(mount_output_capture=True,boot_identity_namespace='Lmipro.SHNGROOT.ImageSet.v1',
     raw_kernel_sha256=sha(raw),device_revision=os.environ['DEVICE_REF'],framework_revision=os.environ['UNIXNU_REF'],
-    data_enabled=False,hardware_tested=False)
+    data_enabled=True,hardware_tested=False)
 (out/'mount-recovery-proof.json').write_text(json.dumps(recovery,indent=2)+'\n')
 
 
@@ -116,6 +116,24 @@ proof=dict(boot_sha256=sha(out/'boot.img'),kernel_sha256=sha(raw),payload_kernel
  framework_revision=subprocess.check_output(['git','-C','unixnu','rev-parse','HEAD'],text=True).strip(),
  device_revision=subprocess.check_output(['git','-C','lmipro','rev-parse','HEAD'],text=True).strip(),
  firmware_source='identical photo-qualified FD720481eb preserved as a pinned compressed branch input',complete_os_qualified=False,userdata_written=False,hardware_test='pending temporary handset test')
+# Inspect the actual linked transport and payload; never infer a mounted Data from a build.
+seed=json.loads((out/'data-seed.json').read_text())
+assert report['data_ramdisk_sha256']==seed['packed_sha256']
+assert not seed['persistent'] and seed['bytes']==33554432
+for name in ['_native_ram_block_volume_seed','_native_ram_block_ready','_lmipro_data_status','_lmipro_data_stage']:
+    assert name in symbols.values(),name
+assert seed['volume_uuid'].encode()+b'\0' in d and bytes.fromhex(seed['sha256']) in d
+assert b'LMIPRO Data mount failed' in d and b'LMIPRO writable RAM Data mounted' in d
+assert '_native_ufs_store_write' not in symbols.values()
+for leaf in ['scratch-data.img','kernel.macho.adt']:
+    subprocess.run(['mcopy','-o','-i',str(volume),'::EFI/UniXNU/Payloads/'+leaf,str(out/leaf)],check=True)
+assert sha(out/'scratch-data.img')==seed['packed_sha256']
+assert b'PackedRAMDisk' in (out/'kernel.macho.adt').read_bytes()
+bindings=root/'tree/build/ram-block/lmipro-bindings.json'
+assert bindings.is_file()
+shutil.copyfile(bindings,out/'ram-block-bindings.json')
+proof.update(volatile_data=True,data_seed=seed,data_mounted_on_handset=False,userdata_reflash_required=False)
+
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))

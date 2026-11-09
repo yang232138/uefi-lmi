@@ -1,8 +1,8 @@
-name: LMIPRO restore mount identity on current source
+name: LMIPRO current mount recovery plus audited volatile Data
 'on':
   push:
     branches:
-    - codex/lmipro-mount-regression-20261109
+    - codex/lmipro-current-data-20261109
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: db00a1bfd2ffc2d3147584f70e6c5f08f76a57fc
+      DEVICE_REF: ad3199252b8233a690fdc5cb6d7c6a585b8f8871
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -178,6 +178,54 @@ jobs:
         ./unixnu fetch -D ../lmipro
 
         ./unixnu status -D ../lmipro
+
+
+        cd "$GITHUB_WORKSPACE/unixnu"
+
+        ./unixnu ipsw fetch -D ../lmipro KernelCache
+
+        '
+    - name: Download the exact host-tested Data seed
+      uses: actions/download-artifact@v4
+      with:
+        name: lmi-volatile-data
+        run-id: 42480654190
+        github-token: ${{ github.token }}
+        path: data-import
+    - name: Verify and install pinned volatile Data input
+      run: 'python3 - <<''PY''
+
+        from pathlib import Path
+
+        import hashlib,json,shutil
+
+        source=Path(''data-import/output'');out=Path(''output'');out.mkdir(exist_ok=True)
+
+        d=json.loads((source/''data-seed.json'').read_text());b=(source/''data-seed/data-32.dbr'').read_bytes()
+
+        assert hashlib.sha256(b).hexdigest()==d[''packed_sha256'']==''2434ed1fdfc09f518fd6b18e6ef77ea94aff5090ed98a8d29018dc013cb42c13''
+
+        assert d[''sha256'']==''8e9ff98f62a4dfc5f8e82ef30f435cfe035ab9830fac59210f8f6a67a5ef097c''
+
+        assert d[''volume_uuid'']==''32EC6E37-C75B-4305-AA27-C2FEA4E67F30'' and d[''bytes'']==33554432
+
+        assert d[''host_timezone_write_probe''] and not d[''persistent'']
+
+        (out/''data-seed'').mkdir(exist_ok=True);(out/''data-seed/data-32.dbr'').write_bytes(b)
+
+        p=Path(''lmipro/patches/xnu/lmipro-data-mount.patch'').read_bytes()
+
+        assert d[''volume_uuid''].encode() in p and b''_REQUIRED'' not in p
+
+        d[''rendered_patch_sha256'']=hashlib.sha256(p).hexdigest()
+
+        (out/''data-seed.json'').write_text(json.dumps(d,indent=2)+''\n'')
+
+        (out/''rendered-lmipro-data-mount.patch'').write_bytes(p)
+
+        print(json.dumps(d,indent=2))
+
+        PY
 
         '
     - name: Record immutable source revisions for the kernel cache
@@ -341,7 +389,7 @@ jobs:
         UNIXNU_UNIQUE_CHIP_ID: '0x8011'
       run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload\
         \ -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache\
-        \ trust.bundle \\\n  --kernel-arg amfi=0x4\n"
+        \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr\n"
     - name: Pack the boot image with the payload in the kernel
       run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact\
         \ is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\"\
@@ -355,7 +403,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-mount-recovery
+        name: lmi-current-volatile-data
         path: 'output/boot.img
 
           output/boot.json
@@ -398,6 +446,15 @@ jobs:
           output/pmgr-hook-disassembly.txt
 
           output/ufs-handoff-build-proof.json
+
+
+          output/data-seed.json
+
+          output/rendered-lmipro-data-mount.patch
+
+          output/data-seed/data-32.dbr
+
+          output/ram-block-bindings.json
 
           '
         if-no-files-found: warn
