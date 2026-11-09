@@ -151,9 +151,17 @@ assert struct.unpack_from('<i',d,m.file_offset(byname['_lmipro_data_stage']))[0]
 watch_build=json.loads((root/'tree/build/lmipro-ufs-block/build-proof.json').read_text())
 watch_header=sha(Path('lmipro/package/LmiproDataWatch.h'))
 assert watch_build['data_watch_header_sha256']==watch_header
+# Prove that the linked timer does not silently filter successful stage 4.
+watch_name=next(name for name in symbols.values() if name.endswith('lmiproDataWatchThreadPvi'))
+watch_lo,watch_hi=m.function_range(symbols,watch_name)
+def conditional_branch(word):
+    return (word & 0xff000010)==0x54000000 or (word & 0x7e000000) in (0x34000000,0x36000000)
+watch_words=[struct.unpack_from('<I',d,m.file_offset(va))[0] for va in range(watch_lo,watch_hi,4)]
+assert not any(map(conditional_branch,watch_words)), 'A conditional silent-success path remains in the watch thread'
+proof['watch_snapshots_success_stage']=True
 (out/'data-watch-proof.json').write_text(json.dumps(dict(header_sha256=watch_header,
     kernel_sha256=sha(raw),initial_data_stage=-2,delay_seconds=30,default_off=True,
-    actual_watch_thread_linked=True,hardware_checkpoint_observed=False),indent=2)+'\n')
+    actual_watch_thread_linked=True,snapshots_success_stage=True,conditional_free_watch=True,hardware_checkpoint_observed=False),indent=2)+'\n')
 
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))

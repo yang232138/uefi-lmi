@@ -1,8 +1,8 @@
-name: LMIPRO opt-in Data stall checkpoint
+name: LMIPRO Data snapshot including successful mounts
 'on':
   push:
     branches:
-    - codex/lmipro-data-watch-20261109
+    - codex/lmipro-data-snapshot-20261110
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 80dd8a3a8dd80ee942bf1372a8a297b0234cc272
+      DEVICE_REF: 8a2d6476aeae288119aaf2eb08e5f95f0ae95e5b
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -417,7 +417,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-data-checkpoint
+        name: lmi-data-snapshot-all
         path: 'output/boot.img
 
           output/boot.json
