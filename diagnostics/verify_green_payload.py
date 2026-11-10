@@ -234,7 +234,7 @@ proof['signature_progress_diagnostic']=True
 display_header=Path('lmipro/package/LmiproDisplayWatch.h')
 assert watch_build['display_watch_header_sha256']==sha(display_header)
 assert 'lmipro-display-watch=1' in report['kernel_args'].split()
-assert 'CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y' not in cfg
+assert 'CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y' in cfg
 checkpoint=next(n for n in symbols.values() if 'lmiproDisplayCheckpoint' in n and '.cold' not in n)
 formatter=next(n for n in symbols.values() if 'lmiproFormatDisplaySnapshot' in n and '.cold' not in n)
 counter=next(n for n in symbols.values() if 'lmiproCountDisplayServices' in n and '.cold' not in n)
@@ -253,6 +253,76 @@ displayproof=dict(kernel_sha256=sha(raw),header_sha256=sha(display_header),actua
 (out/'display-watch-proof.json').write_text(json.dumps(displayproof,indent=2)+'\n')
 shutil.copyfile(display_header,out/'LmiproDisplayWatch.h')
 proof['display_handoff_observer_verified']=True
+# Qualify the new original Legacy startup separately from the read-only observer.
+display_dir=root/'tree/build/native-legacy-display'
+display_build=json.loads((display_dir/'build-report.json').read_text())
+display_abi=json.loads((root/'tree/build/display-analysis/mobile-graphics-legacy-abi.json').read_text())
+assert display_build['component_revision']=='cf3b42979a9c44219e7bb149543e6fc3388b58ed'
+assert display_build['publication_only'] and not display_build['frame_transfer_enabled'] and not display_build['gpu_enabled']
+assert not display_build['original_instructions_modified'] and display_build['virtual_entries']==358
+assert display_abi['static_metadata_arguments_checked'] and display_abi['legacy_instance_bytes']==0x18a0
+assert display_abi['abstract_slots']==[211,213,245,246,306,307,337,338,345]
+assert sha(display_dir/'libNativeLegacyDisplay.late.a')==display_build['archive_sha256']
+for name,digest in display_build['source_sha256'].items():
+    assert sha(root/'tree'/name)==digest
+assert display_build['archive_sha256'] in (root/'tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.native-aes-link-input').read_text()
+for arg in ['lmipro-display-init=1','offline-legacy-phase=4','offline-legacy-register=1','offline-legacy-gop=1']:
+    assert arg in report['kernel_args'].split()
+for arg in ['offline-legacy-transfer','offline-legacy-retire','offline-legacy-cpu-present',
+            'offline-legacy-validate','offline-legacy-pm','sheng-fb-gpu','sheng-vsync']:
+    assert not any(x.startswith(arg+'=') for x in report['kernel_args'].split())
+display_pairs={}
+startup_owner=None
+for owner in ['_bsd_autoconf','_bsd_init']:
+    if owner not in symbols.values():continue
+    try:
+        before,_=m.find_call(d,symbols,owner,'_IOKitBSDInit',1)
+        after,_=m.find_call(d,symbols,owner,'_native_legacy_display_late_probe',1)
+    except (AssertionError,SystemExit,ValueError,KeyError):continue
+    assert before<after
+    startup_owner=owner
+    display_pairs[owner+' -> _IOKitBSDInit']=hex(before)
+    display_pairs[owner+' -> _native_legacy_display_late_probe']=hex(after)
+    break
+assert startup_owner,'Missing actual post-IOKitBSDInit display initialization'
+static_init=next(n for n in symbols.values() if n.endswith('GLOBAL__sub_I_NativeLegacyDisplay.cpp'))
+backend_start=next(n for n in symbols.values() if 'NativeLegacyDisplay13startHardwareEv' in n)
+for owner,callee in [('_native_legacy_display_late_probe',static_init),
+                     ('_native_legacy_display_late_probe','_OSKextLoadKextWithIdentifier'),
+                     ('_native_legacy_display_late_probe','_native_legacy_display_allocate'),
+                     (backend_start,'_native_legacy_gop_mapping_observed'),
+                     (checkpoint,'_lmipro_display_report')]:
+    site,_=m.find_call(d,symbols,owner,callee,1)
+    display_pairs[owner+' -> '+callee]=hex(site)
+# The two original families must retain the reference's entire executable bytes.
+sys.path.insert(0,str((root/'tree/kits/XnuPrelink').resolve()))
+from native_prelink import macho,backed_offset
+prelink=json.loads(raw.with_suffix('.json').read_text());image=macho(d)
+ref=json.loads((root/'tree/build/pmgr-reference/lmipro-reference.json').read_text())
+families={}
+for family in ['com.apple.iokit.IOMobileGraphicsFamily','com.apple.iokit.IOSurface']:
+    extent=next(e for e in prelink['extents'] if e['module']==family and e['segment']=='__TEXT_EXEC')
+    at=backed_offset(image['segments'],extent['va'],extent['size'],len(d))
+    digest=hashlib.sha256(d[at:at+extent['size']]).hexdigest()
+    assert digest==ref['original_executable_sha256'][family]==prelink['original_executable_sha256'][family]
+    families[family]=digest
+compile_command=json.loads((display_dir/'board-compile-command.json').read_text())
+assert '-Werror' in compile_command and any(x.endswith('LmiproDisplay.cpp') for x in compile_command)
+for source,target in [(display_dir/'build-report.json','display-init-build.json'),
+    (root/'tree/build/display-analysis/mobile-graphics-legacy-abi.json','display-init-abi.json'),
+    (display_dir/'libNativeLegacyDisplay.late.a','display-init-archive.a'),
+    (display_dir/'board-compile-command.json','display-init-compile.json'),
+    (root/'tree/kits/lmipro/LmiproDisplay.cpp','LmiproDisplay.cpp'),
+    (root/'tree/kits/lmipro/LmiproDisplayPolicy.h','LmiproDisplayPolicy.h')]:
+    shutil.copyfile(source,out/target)
+initproof=dict(kernel_sha256=sha(raw),archive_sha256=display_build['archive_sha256'],
+    actual_call_sites=display_pairs,original_executable_sha256=families,
+    runtime_gate='lmipro-display-init=1',publication_only=True,frame_transfer_enabled=False,
+    device_register_operations=False,gpu_enabled=False,handset_initialization_observed=False,
+    linked_after_iokit_bsd_init=True,compile_warnings_as_errors=True)
+(out/'display-init-proof.json').write_text(json.dumps(initproof,indent=2)+'\n')
+proof['original_legacy_board_init_verified']=True
+
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))

@@ -1,8 +1,8 @@
-name: LMIPRO correct empty display matching census
+name: LMIPRO original Legacy board initialization
 'on':
   push:
     branches:
-    - codex/lmipro-display-census-20261110
+    - codex/lmipro-display-init-20261110
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 31c976af577be8d37c7e27bf9bf5f2b5494707ae
+      DEVICE_REF: be763643cd7be2f2a51b38fdf5b701fc71511a75
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -265,7 +265,8 @@ jobs:
 
         Path(''declared-lmipro_defconfig'').write_text(s)
 
-        p.write_text(s.replace(''CONFIG_XNU_SHENG_PMGR=y'',''# CONFIG_XNU_SHENG_PMGR is not set''))
+        p.write_text(s.replace(''CONFIG_XNU_SHENG_PMGR=y'',''# CONFIG_XNU_SHENG_PMGR is not set'').replace(''CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y'',''#
+        CONFIG_XNU_NATIVE_LEGACY_DISPLAY is not set''))
 
         PY
 
@@ -303,6 +304,11 @@ jobs:
         c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_display_watch.cpp -o /tmp/lmipro-display-watch
 
         /tmp/lmipro-display-watch
+
+
+        c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_display_policy.cpp -o /tmp/lmipro-display-policy
+
+        /tmp/lmipro-display-policy
 
         '
     - name: Build the fresh flag-off reference candidate
@@ -427,7 +433,9 @@ jobs:
       run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload\
         \ -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache\
         \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr \\\n  --kernel-arg\
-        \ lmipro-data-watch=600 \\\n  --kernel-arg lmipro-display-watch=1\n"
+        \ lmipro-data-watch=600 \\\n  --kernel-arg lmipro-display-watch=1 \\\n  --kernel-arg lmipro-display-init=1\
+        \ \\\n  --kernel-arg offline-legacy-phase=4 \\\n  --kernel-arg offline-legacy-register=1 \\\n  --kernel-arg\
+        \ offline-legacy-gop=1\n"
     - name: Pack the boot image with the payload in the kernel
       run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact\
         \ is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\"\
@@ -441,7 +449,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-display-census
+        name: lmi-display-init
         path: 'output/boot.img
 
           output/boot.json
@@ -537,6 +545,21 @@ jobs:
           output/display-watch-proof.json
 
           output/LmiproDisplayWatch.h
+
+
+          output/display-init-build.json
+
+          output/display-init-abi.json
+
+          output/display-init-archive.a
+
+          output/display-init-compile.json
+
+          output/display-init-proof.json
+
+          output/LmiproDisplay.cpp
+
+          output/LmiproDisplayPolicy.h
 
           '
         if-no-files-found: warn
