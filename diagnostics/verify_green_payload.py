@@ -169,7 +169,10 @@ for name in ['_lmipro_init_stage','_lmipro_init_error','_lmipro_init_path','_pro
 sample_name=next(name for name in symbols.values() if 'lmiproSampleProcesses' in name and '.cold' not in name)
 sample_call,_=m.find_call(d,symbols,watch_name,sample_name,1)
 proc_name_call,_=m.find_call(d,symbols,sample_name,'_proc_name',1)
-exec_call,_=m.find_call(d,symbols,'_load_init_program_at_path','_execve',1)
+exec_spec=importlib.util.spec_from_file_location('exec_forwarding',Path(__file__).with_name('exec-forwarding-check.py'))
+exec_check=importlib.util.module_from_spec(exec_spec);exec_spec.loader.exec_module(exec_check)
+exec_path=exec_check.audit_exec_path(d,symbols,m)
+exec_call=int(exec_path['actual_original_execve_call'],16)
 assert b'initStage=%d execError=%d path=%s' in d and b'process sample pid<=64:' in d
 patch=Path('lmipro/patches/xnu/lmipro-userspace-checkpoint.patch')
 shutil.copyfile(patch,out/'rendered-lmipro-userspace-checkpoint.patch')
@@ -177,6 +180,7 @@ userproof=dict(kernel_sha256=sha(raw),patch_sha256=sha(patch),watch_header_sha25
     actual_original_execve_call=hex(exec_call),actual_timer_sample_call=hex(sample_call),
     actual_proc_name_call=hex(proc_name_call),pid_sample_upper_bound=64,
     original_execve_result_preserved=True,hardware_observed=False)
+userproof.update(exec_path)
 (out/'userspace-checkpoint-proof.json').write_text(json.dumps(userproof,indent=2)+'\n')
 proof['post_data_userspace_diagnostic']=True
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
