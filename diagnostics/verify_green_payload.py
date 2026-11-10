@@ -233,7 +233,7 @@ proof['signature_progress_diagnostic']=True
 # Qualify the read-only display observer in this actual linked kernel.
 display_header=Path('lmipro/package/LmiproDisplayWatch.h')
 assert watch_build['display_watch_header_sha256']==sha(display_header)
-assert 'lmipro-display-watch=1' in report['kernel_args'].split()
+assert 'lmipro-display-watch=2' in report['kernel_args'].split()
 assert 'CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y' in cfg
 checkpoint=next(n for n in symbols.values() if 'lmiproDisplayCheckpoint' in n and '.cold' not in n)
 formatter=next(n for n in symbols.values() if 'lmiproFormatDisplaySnapshot' in n and '.cold' not in n)
@@ -258,7 +258,7 @@ display_dir=root/'tree/build/native-legacy-display'
 display_build=json.loads((display_dir/'build-report.json').read_text())
 display_abi=json.loads((root/'tree/build/display-analysis/mobile-graphics-legacy-abi.json').read_text())
 assert display_build['component_revision']=='cf3b42979a9c44219e7bb149543e6fc3388b58ed'
-assert display_build['publication_only'] and not display_build['frame_transfer_enabled'] and not display_build['gpu_enabled']
+assert not display_build['publication_only'] and display_build['frame_transfer_enabled'] and not display_build['gpu_enabled']
 assert not display_build['original_instructions_modified'] and display_build['virtual_entries']==358
 assert display_abi['static_metadata_arguments_checked'] and display_abi['legacy_instance_bytes']==0x18a0
 assert display_abi['abstract_slots']==[211,213,245,246,306,307,337,338,345]
@@ -269,8 +269,7 @@ for name,digest in display_build['source_sha256'].items():
 # are checked above; actual linked initialization calls are checked below.
 for arg in ['lmipro-display-init=1','offline-legacy-phase=4','offline-legacy-register=1','offline-legacy-gop=1']:
     assert arg in report['kernel_args'].split()
-for arg in ['offline-legacy-transfer','offline-legacy-retire','offline-legacy-cpu-present',
-            'offline-legacy-validate','offline-legacy-pm','sheng-fb-gpu','sheng-vsync']:
+for arg in ['offline-legacy-retire','sheng-fb-gpu','sheng-vsync']:
     assert not any(x.startswith(arg+'=') for x in report['kernel_args'].split())
 display_pairs={}
 startup_owner=None
@@ -318,7 +317,7 @@ for source,target in [(display_dir/'build-report.json','display-init-build.json'
     shutil.copyfile(source,out/target)
 initproof=dict(kernel_sha256=sha(raw),archive_sha256=display_build['archive_sha256'],
     actual_call_sites=display_pairs,original_executable_sha256=families,
-    runtime_gate='lmipro-display-init=1',publication_only=True,frame_transfer_enabled=False,
+    runtime_gate='lmipro-display-init=1',publication_only=False,frame_transfer_enabled=True,
     device_register_operations=False,gpu_enabled=False,handset_initialization_observed=False,
     linked_after_iokit_bsd_init=True,compile_warnings_as_errors=True)
 (out/'display-init-proof.json').write_text(json.dumps(initproof,indent=2)+'\n')
@@ -422,6 +421,29 @@ modeproof=dict(kernel_sha256=sha(raw),header_sha256=sha(mode_header),fault_patch
     fault_observer_reads_only_saved_kernel_registers=True,hardware_observed=False)
 (out/'display-mode-proof.json').write_text(json.dumps(modeproof,indent=2)+'\n')
 proof['display_mode_policy_verified']=True
+
+cpu_header=Path('lmipro/package/LmiproScanoutPolicy.h')
+assert display_build['source_sha256']['kits/lmipro/LmiproScanoutPolicy.h']==sha(cpu_header)
+for arg in ['lmipro-display-cpu=1','offline-legacy-pm=1','offline-legacy-validate=1','offline-legacy-transfer=1','offline-legacy-cpu-present=1']:
+    assert arg in report['kernel_args'].split()
+assert 'CONFIG_XNU_BOOT_PROGRESS=y' not in cfg
+assert display_build['bindings']['_lmipro_original_surface_descriptor']=='0xfffffff004b9ead0'
+assert '_native_legacy_surface_descriptor' not in display_build['bindings']
+cpu_sites={}
+for owner,callee in [('_native_legacy_prepare_scanout','_PE_initialize_console'),
+                     ('_native_legacy_surface_descriptor','_lmipro_original_surface_descriptor'),
+                     (checkpoint,'_lmipro_display_frame_presented'),
+                     (checkpoint,'_thread_terminate')]:
+    site,kind=ui_direct_edge(owner,callee);cpu_sites[owner+' -> '+callee]=dict(site=hex(site),kind=kind)
+shutil.copyfile(cpu_header,out/cpu_header.name)
+cpuproof=dict(kernel_sha256=sha(raw),header_sha256=sha(cpu_header),actual_direct_edges=cpu_sites,
+    gpu_enabled=False,cpu_policy_opt_in=True,original_cpu_surface_copy_enabled=True,
+    compressed_and_planar_formats_refused=True,original_descriptor_alias=display_build['bindings']['_lmipro_original_surface_descriptor'],
+    normal_original_swap_retirement_only_after_copy=True,video_console_release_before_copy=True,
+    boot_progress_writer_not_compiled=True,blank_only_or_failed_transfer_keeps_diagnostic_stop=True,
+    actual_frame_presented=False,handset_ui_observed=False)
+(out/'display-cpu-proof.json').write_text(json.dumps(cpuproof,indent=2)+'\n')
+proof['cpu_presentation_path_verified']=True
 
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
