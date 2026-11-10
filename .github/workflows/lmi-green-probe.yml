@@ -1,8 +1,8 @@
-name: LMIPRO Data snapshot including successful mounts
+name: LMIPRO post-Data init exec and process snapshot
 'on':
   push:
     branches:
-    - codex/lmipro-data-snapshot-20261110
+    - codex/lmipro-userspace-checkpoint-20261110
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 8a2d6476aeae288119aaf2eb08e5f95f0ae95e5b
+      DEVICE_REF: c9b51f06c5ad47a28239f343f7801d963b4dfcc8
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -417,7 +417,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-data-snapshot-all
+        name: lmi-userspace-checkpoint
         path: 'output/boot.img
 
           output/boot.json

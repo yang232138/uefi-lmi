@@ -163,6 +163,22 @@ proof['watch_snapshots_success_stage']=True
     kernel_sha256=sha(raw),initial_data_stage=-2,delay_seconds=30,default_off=True,
     actual_watch_thread_linked=True,snapshots_success_stage=True,conditional_free_watch=True,hardware_checkpoint_observed=False),indent=2)+'\n')
 
+# Check the actual post-Data diagnostics and original API calls in this kernel.
+for name in ['_lmipro_init_stage','_lmipro_init_error','_lmipro_init_path','_proc_name']:
+    assert name in byname,name
+sample_name=next(name for name in symbols.values() if 'lmiproSampleProcesses' in name and '.cold' not in name)
+sample_call,_=m.find_call(d,symbols,watch_name,sample_name,1)
+proc_name_call,_=m.find_call(d,symbols,sample_name,'_proc_name',1)
+exec_call,_=m.find_call(d,symbols,'_load_init_program_at_path','_execve',1)
+assert b'initStage=%d execError=%d path=%s' in d and b'process sample pid<=64:' in d
+patch=Path('lmipro/patches/xnu/lmipro-userspace-checkpoint.patch')
+shutil.copyfile(patch,out/'rendered-lmipro-userspace-checkpoint.patch')
+userproof=dict(kernel_sha256=sha(raw),patch_sha256=sha(patch),watch_header_sha256=watch_header,
+    actual_original_execve_call=hex(exec_call),actual_timer_sample_call=hex(sample_call),
+    actual_proc_name_call=hex(proc_name_call),pid_sample_upper_bound=64,
+    original_execve_result_preserved=True,hardware_observed=False)
+(out/'userspace-checkpoint-proof.json').write_text(json.dumps(userproof,indent=2)+'\n')
+proof['post_data_userspace_diagnostic']=True
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))
