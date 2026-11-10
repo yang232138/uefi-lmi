@@ -1,8 +1,8 @@
-name: LMIPRO original Legacy board initialization
+name: LMIPRO original display client dispatch observer
 'on':
   push:
     branches:
-    - codex/lmipro-display-init-counters-20261110
+    - codex/lmipro-display-dispatch-20261110
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: c27997036fcf2d3a18306e3d12b3b3ddfbbe2215
+      DEVICE_REF: c2002911bcaf255cd5c2bb58fbf876a8d4bf1041
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -316,6 +316,11 @@ jobs:
 
         /tmp/lmipro-display-board-watch
 
+
+        c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_display_trace.cpp -o /tmp/lmipro-display-trace
+
+        /tmp/lmipro-display-trace
+
         '
     - name: Build the fresh flag-off reference candidate
       run: 'cd unixnu
@@ -441,7 +446,7 @@ jobs:
         \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr \\\n  --kernel-arg\
         \ lmipro-data-watch=600 \\\n  --kernel-arg lmipro-display-watch=1 \\\n  --kernel-arg lmipro-display-init=1\
         \ \\\n  --kernel-arg offline-legacy-phase=4 \\\n  --kernel-arg offline-legacy-register=1 \\\n  --kernel-arg\
-        \ offline-legacy-gop=1\n"
+        \ offline-legacy-gop=1 \\\n  --kernel-arg lmipro-display-calls=1\n"
     - name: Pack the boot image with the payload in the kernel
       run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact\
         \ is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\"\
@@ -455,7 +460,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-display-init
+        name: lmi-display-dispatch
         path: 'output/boot.img
 
           output/boot.json
@@ -566,6 +571,23 @@ jobs:
           output/LmiproDisplay.cpp
 
           output/LmiproDisplayPolicy.h
+
+
+          output/display-dispatch-proof.json
+
+          output/LmiproDisplayTrace.h
+
+          output/rendered-lmipro-display-dispatch.patch
+
+          unixnu/out/**/tree/build/native-legacy-display/build-report.json
+
+          unixnu/out/**/tree/build/native-legacy-display/libNativeLegacyDisplay.late.a
+
+          unixnu/out/**/tree/build/native-legacy-display/board-compile-command.json
+
+          unixnu/out/**/tree/build/display-analysis/mobile-graphics-legacy-abi.json
+
+          unixnu/out/**/tree/build/xnu/ios-obj/**/IOUserClient.cpo.json
 
           '
         if-no-files-found: warn

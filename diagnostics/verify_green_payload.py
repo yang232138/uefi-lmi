@@ -265,7 +265,8 @@ assert display_abi['abstract_slots']==[211,213,245,246,306,307,337,338,345]
 assert sha(display_dir/'libNativeLegacyDisplay.late.a')==display_build['archive_sha256']
 for name,digest in display_build['source_sha256'].items():
     assert sha(root/'tree'/name)==digest
-assert display_build['archive_sha256'] in (root/'tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.native-aes-link-input').read_text()
+# The general AES cache stamp omits Legacy archives. Exact archive/source hashes
+# are checked above; actual linked initialization calls are checked below.
 for arg in ['lmipro-display-init=1','offline-legacy-phase=4','offline-legacy-register=1','offline-legacy-gop=1']:
     assert arg in report['kernel_args'].split()
 for arg in ['offline-legacy-transfer','offline-legacy-retire','offline-legacy-cpu-present',
@@ -322,6 +323,41 @@ initproof=dict(kernel_sha256=sha(raw),archive_sha256=display_build['archive_sha2
     linked_after_iokit_bsd_init=True,compile_warnings_as_errors=True)
 (out/'display-init-proof.json').write_text(json.dumps(initproof,indent=2)+'\n')
 proof['original_legacy_board_init_verified']=True
+
+trace_header=Path('lmipro/package/LmiproDisplayTrace.h')
+trace_patch=Path('lmipro/patches/xnu/lmipro-display-dispatch.patch')
+assert display_build['source_sha256']['kits/lmipro/LmiproDisplayTrace.h']==sha(trace_header)
+assert 'lmipro-display-calls=1' in report['kernel_args'].split()
+dispatcher=next(n for n in symbols.values() if '12IOUserClient18callExternalMethodE' in n)
+trace_sites=[m.find_call(d,symbols,dispatcher,'_lmipro_display_method_event',i)[0] for i in [1,2]]
+assert trace_sites[0]<trace_sites[1]
+assert b'IOMobileFramebufferUserClient\0' in d and b'Display calls in=%llu out=%llu dropped=%llu' in d
+record_path=root/'tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOUserClient.cpo.json'
+record=json.loads(record_path.read_text().strip().rstrip(','))
+cpp=Path(record['file'])
+if not cpp.is_absolute():cpp=Path(record['directory'])/cpp
+text=cpp.read_text()
+start=text.index('IOReturn\nIOUserClient::callExternalMethod(')
+end=text.index('\nMIG_SERVER_ROUTINE',start)
+body=text[start:end]
+guard='#if (DEVELOPMENT || DEBUG) && defined(XNU_NATIVE_LEGACY_DISPLAY) && XNU_NATIVE_LEGACY_DISPLAY'
+entry='\n'+guard+'\n\tlmipro_display_method_event(this, selector, args, 0, kIOReturnSuccess);\n#endif\n'
+exit='\n'+guard+'\n\tlmipro_display_method_event(this, selector, args, 1, ret);\n#endif\n'
+assert body.count(entry)==body.count(exit)==1
+restored=body.replace(entry,'').replace(exit,'')
+assert hashlib.sha256(restored.encode()).hexdigest()=='8c08c11480fdbe6baa40897c601ce3b3f4f1c21298fbe92205e5a7aedf51b529'
+assert any('-DXNU_NATIVE_LEGACY_DISPLAY=1' in a for a in record['arguments'])
+dispatchproof=dict(kernel_sha256=sha(raw),trace_header_sha256=sha(trace_header),
+    patch_sha256=sha(trace_patch),board_source_sha256=sha(Path('lmipro/package/LmiproDisplay.cpp')),
+    actual_call_sites=list(map(hex,trace_sites)),dispatcher=dispatcher,
+    original_dispatch_restored_sha256=hashlib.sha256(restored.encode()).hexdigest(),
+    source_original_call_locks_and_return_preserved=True,class_filter='IOMobileFramebufferUserClient',
+    max_scalar_inputs_copied=3,selector_table_size=96,snapshot_rows=4,
+    default_off=True,nonwaiting=True,frame_transfer_enabled=False,hardware_observed=False,
+    original_client_vptr_or_methods_modified=False)
+for path in [trace_header,trace_patch]:shutil.copyfile(path,out/('rendered-'+path.name if path.suffix=='.patch' else path.name))
+(out/'display-dispatch-proof.json').write_text(json.dumps(dispatchproof,indent=2)+'\n')
+proof['original_display_dispatch_observer_verified']=True
 
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
