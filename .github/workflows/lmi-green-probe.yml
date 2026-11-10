@@ -2,7 +2,7 @@ name: LMIPRO original Legacy board initialization
 'on':
   push:
     branches:
-    - codex/lmipro-display-init-bytes-20261110
+    - codex/lmipro-display-init-counters-20261110
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 59c0c1dc30ccd7310c4c1452b3cd6848536d8a0e
+      DEVICE_REF: c27997036fcf2d3a18306e3d12b3b3ddfbbe2215
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
