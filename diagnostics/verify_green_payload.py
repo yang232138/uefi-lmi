@@ -144,7 +144,7 @@ assert binding_proof['volatile_provider_sha256']==sha(Path('lmipro/package/Lmipr
 shutil.copyfile(bindings,out/'ram-block-bindings.json')
 proof.update(volatile_data=True,data_seed=seed,data_mounted_on_handset=False,userdata_reflash_required=False)
 
-assert 'lmipro-data-watch=120' in report['kernel_args'].split()
+assert 'lmipro-data-watch=600' in report['kernel_args'].split()
 assert b'LMIPRO DATA CHECKPOINT timeout=%u' in d
 assert any('lmiproDataWatchThread' in name for name in symbols.values())
 assert struct.unpack_from('<i',d,m.file_offset(byname['_lmipro_data_stage']))[0]==-2
@@ -160,7 +160,7 @@ watch_words=[struct.unpack_from('<I',d,m.file_offset(va))[0] for va in range(wat
 assert not any(map(conditional_branch,watch_words)), 'A conditional silent-success path remains in the watch thread'
 proof['watch_snapshots_success_stage']=True
 (out/'data-watch-proof.json').write_text(json.dumps(dict(header_sha256=watch_header,
-    kernel_sha256=sha(raw),initial_data_stage=-2,delay_seconds=120,default_off=True,
+    kernel_sha256=sha(raw),initial_data_stage=-2,delay_seconds=600,default_off=True,
     actual_watch_thread_linked=True,snapshots_success_stage=True,conditional_free_watch=True,hardware_checkpoint_observed=False),indent=2)+'\n')
 
 # Check the actual post-Data diagnostics and original API calls in this kernel.
@@ -195,11 +195,11 @@ pid_site,_=m.find_call(d,symbols,'_lmipro_user_trace_event','_proc_selfpid',1)
 formatter=next(name for name in symbols.values() if 'lmiproFormatUserTrace' in name and '.cold' not in name)
 format_site,_=m.find_call(d,symbols,watch_name,formatter,1)
 records={}
-for area,stem in [('osfmk','sleh'),('bsd','systemcalls')]:
+for area,stem in [('osfmk','sleh'),('bsd','systemcalls'),('bsd','kern_descrip')]:
     p=root/f'tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/{area}/DEVELOPMENT/{stem}.o.json'
     rec=json.loads(p.read_text().strip().rstrip(','));args=rec['arguments']
     assert any(a=='-DLMIPRO_USER_TRACE=1' or (a=='LMIPRO_USER_TRACE=1' and i and args[i-1]=='-D') for i,a in enumerate(args))
-    s=Path(rec['file']).read_bytes();assert b'LMIPRO_USER_EVENT' in s
+    s=Path(rec['file']).read_bytes();assert (b'LMIPRO_SIG_EVENT' if stem=='kern_descrip' else b'LMIPRO_USER_EVENT') in s
     records[stem]=dict(compile_record=rec,source_sha256=hashlib.sha256(s).hexdigest(),per_file_flag1_verified=True)
 flags=json.loads(Path('unixnu/build/lmipro-user-trace-flags.json').read_text())
 assert flags['reference_mode']==0 and flags['final_mode']==1 and flags['uses_existing_mode_stamp']
@@ -211,6 +211,25 @@ traceproof=dict(kernel_sha256=sha(raw),trace_header_sha256=sha(trace_header),tra
     preserves_original_dispatch_and_return_registers=True,hardware_observed=False)
 (out/'pid1-trace-proof.json').write_text(json.dumps(traceproof,indent=2)+'\n')
 proof['pid1_runtime_trace_verified']=True
+# Signature progress is observational; the original signature implementation is unchanged.
+sign_header=Path('lmipro/package/LmiproSignProgress.h')
+assert watch_build['sign_progress_header_sha256']==sha(sign_header)
+wait_name=next(n for n in symbols.values() if 'lmiproWaitSignProgress' in n and '.cold' not in n)
+wait_site,_=m.find_call(d,symbols,watch_name,wait_name,1)
+fcntl_site,_=m.find_call(d,symbols,'_sys_fcntl_nocancel','_lmipro_user_trace_event',1)
+counters=['_cs_native4k_full_blocks','_cs_native4k_ready_blobs','_cs_native4k_bytes',
+    '_cs_native4k_read_ticks','_cs_native4k_hash_ticks','_cs_validate_page_bad_hash','_cs_validate_page_no_hash']
+assert all(n in byname for n in counters)
+assert b'CS at%u blocks=%llu bytes=%llu blobs=%llu' in d and b'fileSig stage=%d' in d
+stage_patch=Path('lmipro/patches/xnu/lmipro-filesig-stage.patch')
+native_patch=Path('unixnu/patches/xnu/native-4k-signature-hash-cache.patch')
+shutil.copyfile(stage_patch,out/'rendered-lmipro-filesig-stage.patch')
+shutil.copyfile(native_patch,out/'original-native-4k-signature-hash-cache.patch')
+signproof=dict(kernel_sha256=sha(raw),header_sha256=sha(sign_header),stage_patch_sha256=sha(stage_patch),
+    native_signature_patch_sha256=sha(native_patch),actual_wait_call=hex(wait_site),actual_fcntl_trace_call=hex(fcntl_site),
+    counter_symbols=counters,sample_seconds=[0,30,600],original_authentication_and_errors_preserved=True,hardware_observed=False)
+(out/'sign-progress-proof.json').write_text(json.dumps(signproof,indent=2)+'\n')
+proof['signature_progress_diagnostic']=True
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))

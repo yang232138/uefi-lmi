@@ -1,8 +1,8 @@
-name: LMIPRO PID1 runtime syscall exception and EL0 PC trace
+name: LMIPRO signature stage and native 4K progress diagnostic
 'on':
   push:
     branches:
-    - codex/lmipro-pid1-trace-20261110
+    - codex/lmipro-sign-progress-20261110
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 13f732a4b0da206009df8021ba5ee9039b0ce95c
+      DEVICE_REF: be1e678c3f12346644f90f3e6d5088bb0ec34f06
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -289,6 +289,11 @@ jobs:
 
         /tmp/lmipro-user-trace
 
+
+        c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_sign_progress.cpp -o /tmp/lmipro-sign-progress
+
+        /tmp/lmipro-sign-progress
+
         '
     - name: Build the fresh flag-off reference candidate
       run: 'cd unixnu
@@ -412,7 +417,7 @@ jobs:
       run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload\
         \ -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache\
         \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr \\\n  --kernel-arg\
-        \ lmipro-data-watch=120\n"
+        \ lmipro-data-watch=600\n"
     - name: Pack the boot image with the payload in the kernel
       run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact\
         \ is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\"\
@@ -426,7 +431,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-pid1-runtime-trace
+        name: lmi-signature-progress
         path: 'output/boot.img
 
           output/boot.json
@@ -508,6 +513,15 @@ jobs:
           unixnu/out/**/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/sleh.o.json
 
           unixnu/out/**/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/systemcalls.o.json
+
+
+          output/sign-progress-proof.json
+
+          output/rendered-lmipro-filesig-stage.patch
+
+          output/original-native-4k-signature-hash-cache.patch
+
+          unixnu/out/**/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/kern_descrip.o.json
 
           '
         if-no-files-found: warn
