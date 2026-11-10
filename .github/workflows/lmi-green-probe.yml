@@ -1,8 +1,8 @@
-name: LMIPRO read-only display handoff qualification
+name: LMIPRO correct empty display matching census
 'on':
   push:
     branches:
-    - codex/lmipro-display-watch-20261110
+    - codex/lmipro-display-census-20261110
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 228516bfea419f7de9d4b608970092366357a88b
+      DEVICE_REF: 31c976af577be8d37c7e27bf9bf5f2b5494707ae
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -441,7 +441,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-display-watch
+        name: lmi-display-census
         path: 'output/boot.img
 
           output/boot.json
