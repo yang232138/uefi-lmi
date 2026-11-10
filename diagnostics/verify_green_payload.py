@@ -144,7 +144,7 @@ assert binding_proof['volatile_provider_sha256']==sha(Path('lmipro/package/Lmipr
 shutil.copyfile(bindings,out/'ram-block-bindings.json')
 proof.update(volatile_data=True,data_seed=seed,data_mounted_on_handset=False,userdata_reflash_required=False)
 
-assert 'lmipro-data-watch=30' in report['kernel_args'].split()
+assert 'lmipro-data-watch=120' in report['kernel_args'].split()
 assert b'LMIPRO DATA CHECKPOINT timeout=%u' in d
 assert any('lmiproDataWatchThread' in name for name in symbols.values())
 assert struct.unpack_from('<i',d,m.file_offset(byname['_lmipro_data_stage']))[0]==-2
@@ -160,7 +160,7 @@ watch_words=[struct.unpack_from('<I',d,m.file_offset(va))[0] for va in range(wat
 assert not any(map(conditional_branch,watch_words)), 'A conditional silent-success path remains in the watch thread'
 proof['watch_snapshots_success_stage']=True
 (out/'data-watch-proof.json').write_text(json.dumps(dict(header_sha256=watch_header,
-    kernel_sha256=sha(raw),initial_data_stage=-2,delay_seconds=30,default_off=True,
+    kernel_sha256=sha(raw),initial_data_stage=-2,delay_seconds=120,default_off=True,
     actual_watch_thread_linked=True,snapshots_success_stage=True,conditional_free_watch=True,hardware_checkpoint_observed=False),indent=2)+'\n')
 
 # Check the actual post-Data diagnostics and original API calls in this kernel.
@@ -183,6 +183,34 @@ userproof=dict(kernel_sha256=sha(raw),patch_sha256=sha(patch),watch_header_sha25
 userproof.update(exec_path)
 (out/'userspace-checkpoint-proof.json').write_text(json.dumps(userproof,indent=2)+'\n')
 proof['post_data_userspace_diagnostic']=True
+# Actual PID1 trace callbacks and two explicit final-mode compile records.
+trace_header=Path('lmipro/package/LmiproUserTrace.h')
+assert watch_build['user_trace_header_sha256']==sha(trace_header)
+assert '_lmipro_user_trace_event' in byname and b'PID1 svcIn=%llu' in d
+trace_sites={}
+for owner in ['_sleh_synchronous','_unix_syscall_return']:
+    site,_=m.find_call(d,symbols,owner,'_lmipro_user_trace_event',1)
+    trace_sites[owner]=hex(site)
+pid_site,_=m.find_call(d,symbols,'_lmipro_user_trace_event','_proc_selfpid',1)
+formatter=next(name for name in symbols.values() if 'lmiproFormatUserTrace' in name and '.cold' not in name)
+format_site,_=m.find_call(d,symbols,watch_name,formatter,1)
+records={}
+for area,stem in [('osfmk','sleh'),('bsd','systemcalls')]:
+    p=root/f'tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/{area}/DEVELOPMENT/{stem}.o.json'
+    rec=json.loads(p.read_text().strip().rstrip(','));args=rec['arguments']
+    assert any(a=='-DLMIPRO_USER_TRACE=1' or (a=='LMIPRO_USER_TRACE=1' and i and args[i-1]=='-D') for i,a in enumerate(args))
+    s=Path(rec['file']).read_bytes();assert b'LMIPRO_USER_EVENT' in s
+    records[stem]=dict(compile_record=rec,source_sha256=hashlib.sha256(s).hexdigest(),per_file_flag1_verified=True)
+flags=json.loads(Path('unixnu/build/lmipro-user-trace-flags.json').read_text())
+assert flags['reference_mode']==0 and flags['final_mode']==1 and flags['uses_existing_mode_stamp']
+trace_patch=Path('lmipro/patches/xnu/lmipro-pid1-trace.patch')
+shutil.copyfile(trace_patch,out/'rendered-lmipro-pid1-trace.patch')
+traceproof=dict(kernel_sha256=sha(raw),trace_header_sha256=sha(trace_header),trace_patch_sha256=sha(trace_patch),
+    callback_sites=trace_sites,actual_proc_selfpid_call=hex(pid_site),actual_timer_formatter_call=hex(format_site),
+    compile_records=records,build_flags_adaptation=flags,default_runtime_off=True,pid_filter=1,
+    preserves_original_dispatch_and_return_registers=True,hardware_observed=False)
+(out/'pid1-trace-proof.json').write_text(json.dumps(traceproof,indent=2)+'\n')
+proof['pid1_runtime_trace_verified']=True
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))

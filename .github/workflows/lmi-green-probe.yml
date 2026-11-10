@@ -1,8 +1,8 @@
-name: LMIPRO post-Data init exec and process snapshot
+name: LMIPRO PID1 runtime syscall exception and EL0 PC trace
 'on':
   push:
     branches:
-    - codex/lmipro-userspace-checkpoint-20261110
+    - codex/lmipro-pid1-trace-20261110
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: c9b51f06c5ad47a28239f343f7801d963b4dfcc8
+      DEVICE_REF: 13f732a4b0da206009df8021ba5ee9039b0ce95c
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -109,7 +109,11 @@ jobs:
 
         '
     - name: Adapt the pinned upstreams
-      run: python3 overlay/scripts/adapt.py --unixnu unixnu
+      run: 'python3 overlay/scripts/adapt.py --unixnu unixnu
+
+        python3 overlay/diagnostics/apply_lmipro_user_trace_flags.py unixnu
+
+        '
     - name: Apply the reviewed official entry diagnostic and qualify firmware
       run: 'git -C lmipro apply --check "$GITHUB_WORKSPACE/overlay/diagnostics/lmi-green-entry.patch"
 
@@ -280,6 +284,11 @@ jobs:
 
         /tmp/lmipro-data-watch
 
+
+        c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_user_trace.cpp -o /tmp/lmipro-user-trace
+
+        /tmp/lmipro-user-trace
+
         '
     - name: Build the fresh flag-off reference candidate
       run: 'cd unixnu
@@ -403,7 +412,7 @@ jobs:
       run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload\
         \ -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache\
         \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr \\\n  --kernel-arg\
-        \ lmipro-data-watch=30\n"
+        \ lmipro-data-watch=120\n"
     - name: Pack the boot image with the payload in the kernel
       run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact\
         \ is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\"\
@@ -417,7 +426,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-userspace-checkpoint
+        name: lmi-pid1-runtime-trace
         path: 'output/boot.img
 
           output/boot.json
@@ -484,6 +493,21 @@ jobs:
           unixnu/out/**/tree/build/pmgr-reference/lmipro-reference.macho
 
           unixnu/out/**/tree/build/pmgr-reference/lmipro-reference.json
+
+
+          output/userspace-checkpoint-proof.json
+
+          output/rendered-lmipro-userspace-checkpoint.patch
+
+          output/pid1-trace-proof.json
+
+          output/rendered-lmipro-pid1-trace.patch
+
+          unixnu/build/lmipro-user-trace-flags.json
+
+          unixnu/out/**/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/sleh.o.json
+
+          unixnu/out/**/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/systemcalls.o.json
 
           '
         if-no-files-found: warn
