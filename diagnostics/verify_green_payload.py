@@ -346,7 +346,13 @@ exit='\n'+guard+'\n\tlmipro_display_method_event(this, selector, args, 1, ret);\
 assert body.count(entry)==body.count(exit)==1
 restored=body.replace(entry,'').replace(exit,'')
 assert hashlib.sha256(restored.encode()).hexdigest()=='8c08c11480fdbe6baa40897c601ce3b3f4f1c21298fbe92205e5a7aedf51b529'
-assert any('-DXNU_NATIVE_LEGACY_DISPLAY=1' in a for a in record['arguments'])
+argv=record['arguments']
+definitions=[]
+for i,a in enumerate(argv):
+    if a.startswith('-DXNU_NATIVE_LEGACY_DISPLAY='):definitions.append(a.split('=',1)[1])
+    elif a=='-D' and i+1<len(argv) and argv[i+1].startswith('XNU_NATIVE_LEGACY_DISPLAY='):
+        definitions.append(argv[i+1].split('=',1)[1])
+assert definitions and definitions[-1]=='1'
 dispatchproof=dict(kernel_sha256=sha(raw),trace_header_sha256=sha(trace_header),
     patch_sha256=sha(trace_patch),board_source_sha256=sha(Path('lmipro/package/LmiproDisplay.cpp')),
     actual_call_sites=list(map(hex,trace_sites)),dispatcher=dispatcher,
@@ -358,6 +364,31 @@ dispatchproof=dict(kernel_sha256=sha(raw),trace_header_sha256=sha(trace_header),
 for path in [trace_header,trace_patch]:shutil.copyfile(path,out/('rendered-'+path.name if path.suffix=='.patch' else path.name))
 (out/'display-dispatch-proof.json').write_text(json.dumps(dispatchproof,indent=2)+'\n')
 proof['original_display_dispatch_observer_verified']=True
+
+ui_header=Path('lmipro/package/LmiproUITrace.h')
+assert 'lmipro-ui-watch=1' in report['kernel_args'].split()
+assert watch_build['ui_trace_header_sha256']==sha(ui_header)
+assert b'UI activity enabled=%u dropped=%llu' in d
+ui_pairs={}
+for owner,callee in [('_lmipro_user_trace_event','_lmipro_ui_user_event'),
+                     ('_lmipro_ui_user_event','_proc_selfname'),
+                     ('_lmipro_ui_user_event','_thread_tid'),
+                     ('_lmipro_display_method_event','_proc_selfname'),
+                     ('_native_legacy_display_late_probe','_lmipro_ui_trace_enable'),
+                     (checkpoint,'_lmipro_ui_trace_report')]:
+    site,_=m.find_call(d,symbols,owner,callee,1)
+    ui_pairs[owner+' -> '+callee]=hex(site)
+for source in [ui_header,Path('lmipro/package/LmiproUserTrace.h')]:
+    shutil.copyfile(source,out/source.name)
+uiproof=dict(kernel_sha256=sha(raw),header_sha256=sha(ui_header),
+    user_trace_header_sha256=sha(Path('lmipro/package/LmiproUserTrace.h')),
+    actual_call_sites=ui_pairs,default_off=True,read_only=True,
+    actor_names=['SpringBoard','backboardd'],actor_limit=2,
+    original_entry_return_exception_registers_preserved=True,
+    aggregate_events_not_paired_waits=True,frame_transfer_enabled=False,
+    original_client_vptr_or_methods_modified=False,hardware_observed=False)
+(out/'ui-activity-proof.json').write_text(json.dumps(uiproof,indent=2)+'\n')
+proof['ui_activity_observer_verified']=True
 
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
