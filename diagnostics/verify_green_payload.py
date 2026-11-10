@@ -230,6 +230,29 @@ signproof=dict(kernel_sha256=sha(raw),header_sha256=sha(sign_header),stage_patch
     counter_symbols=counters,sample_seconds=[0,30,600],original_authentication_and_errors_preserved=True,hardware_observed=False)
 (out/'sign-progress-proof.json').write_text(json.dumps(signproof,indent=2)+'\n')
 proof['signature_progress_diagnostic']=True
+# Qualify the read-only display observer in this actual linked kernel.
+display_header=Path('lmipro/package/LmiproDisplayWatch.h')
+assert watch_build['display_watch_header_sha256']==sha(display_header)
+assert 'lmipro-display-watch=1' in report['kernel_args'].split()
+assert 'CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y' not in cfg
+checkpoint=next(n for n in symbols.values() if 'lmiproDisplayCheckpoint' in n and '.cold' not in n)
+formatter=next(n for n in symbols.values() if 'lmiproFormatDisplaySnapshot' in n and '.cold' not in n)
+counter=next(n for n in symbols.values() if 'lmiproCountDisplayServices' in n and '.cold' not in n)
+matching=next(n for n in symbols.values() if n.startswith('__ZN9IOService15serviceMatchingEPKc'))
+registry=next(n for n in symbols.values() if n.startswith('__ZN9IOService19getMatchingServicesE'))
+display_calls={}
+for owner,callee in [(watch_name,checkpoint),(checkpoint,formatter),(formatter,'_PE_current_console'),(formatter,counter),(counter,matching),(counter,registry)]:
+    site,_=m.find_call(d,symbols,owner,callee,1)
+    display_calls[owner+' -> '+callee]=hex(site)
+assert b'LMIPRO DISPLAY CHECKPOINT timeout=%u' in d
+assert b'published MobileFB=%d LegacyFB=%d IOSurface=%d GOP=%d' in d
+displayproof=dict(kernel_sha256=sha(raw),header_sha256=sha(display_header),actual_call_sites=display_calls,
+    source_sha256=sha(Path('lmipro/package/LmiproUfsBlock.cpp')),default_off=True,
+    read_only=True,hardware_observed=False,no_device_mapping_or_display_operations=True,
+    sample_delay_seconds=600,published_count_cap=33)
+(out/'display-watch-proof.json').write_text(json.dumps(displayproof,indent=2)+'\n')
+shutil.copyfile(display_header,out/'LmiproDisplayWatch.h')
+proof['display_handoff_observer_verified']=True
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))

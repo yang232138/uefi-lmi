@@ -1,8 +1,8 @@
-name: LMIPRO signature stage and native 4K progress diagnostic
+name: LMIPRO read-only display handoff qualification
 'on':
   push:
     branches:
-    - codex/lmipro-sign-progress-20261110
+    - codex/lmipro-display-watch-20261110
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: be1e678c3f12346644f90f3e6d5088bb0ec34f06
+      DEVICE_REF: 228516bfea419f7de9d4b608970092366357a88b
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -188,6 +188,11 @@ jobs:
 
         ./unixnu ipsw fetch -D ../lmipro KernelCache
 
+
+        ./unixnu tree -D ../lmipro
+
+        python3 scripts/porting-record.py check --device ../lmipro
+
         '
     - name: Download the exact host-tested Data seed
       uses: actions/download-artifact@v4
@@ -293,6 +298,11 @@ jobs:
         c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_sign_progress.cpp -o /tmp/lmipro-sign-progress
 
         /tmp/lmipro-sign-progress
+
+
+        c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_display_watch.cpp -o /tmp/lmipro-display-watch
+
+        /tmp/lmipro-display-watch
 
         '
     - name: Build the fresh flag-off reference candidate
@@ -417,7 +427,7 @@ jobs:
       run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload\
         \ -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache\
         \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr \\\n  --kernel-arg\
-        \ lmipro-data-watch=600\n"
+        \ lmipro-data-watch=600 \\\n  --kernel-arg lmipro-display-watch=1\n"
     - name: Pack the boot image with the payload in the kernel
       run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact\
         \ is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\"\
@@ -431,7 +441,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-signature-progress
+        name: lmi-display-watch
         path: 'output/boot.img
 
           output/boot.json
@@ -522,6 +532,11 @@ jobs:
           output/original-native-4k-signature-hash-cache.patch
 
           unixnu/out/**/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/kern_descrip.o.json
+
+
+          output/display-watch-proof.json
+
+          output/LmiproDisplayWatch.h
 
           '
         if-no-files-found: warn
