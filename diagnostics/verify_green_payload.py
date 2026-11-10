@@ -370,25 +370,58 @@ assert 'lmipro-ui-watch=1' in report['kernel_args'].split()
 assert watch_build['ui_trace_header_sha256']==sha(ui_header)
 assert b'UI activity enabled=%u dropped=%llu' in d
 ui_pairs={}
+ui_branch_kinds={}
+def ui_direct_edge(owner,callee):
+    low,high=m.function_range(symbols,owner)
+    destination=byname[callee];hits=[]
+    for pc in range(low,high,4):
+        op=struct.unpack_from('<I',d,m.file_offset(pc))[0]
+        if op&0x7c000000!=0x14000000:continue
+        immediate=op&0x3ffffff
+        if immediate&(1<<25):immediate-=1<<26
+        if pc+4*immediate==destination:hits.append((pc,'bl' if op&0x80000000 else 'b'))
+    assert len(hits)==1,(owner,callee,hits)
+    return hits[0]
 for owner,callee in [('_lmipro_user_trace_event','_lmipro_ui_user_event'),
                      ('_lmipro_ui_user_event','_proc_selfname'),
                      ('_lmipro_ui_user_event','_thread_tid'),
                      ('_lmipro_display_method_event','_proc_selfname'),
                      ('_native_legacy_display_late_probe','_lmipro_ui_trace_enable'),
                      (checkpoint,'_lmipro_ui_trace_report')]:
-    site,_=m.find_call(d,symbols,owner,callee,1)
+    site,kind=ui_direct_edge(owner,callee)
     ui_pairs[owner+' -> '+callee]=hex(site)
+    ui_branch_kinds[owner+' -> '+callee]=kind
 for source in [ui_header,Path('lmipro/package/LmiproUserTrace.h')]:
     shutil.copyfile(source,out/source.name)
 uiproof=dict(kernel_sha256=sha(raw),header_sha256=sha(ui_header),
     user_trace_header_sha256=sha(Path('lmipro/package/LmiproUserTrace.h')),
-    actual_call_sites=ui_pairs,default_off=True,read_only=True,
+    actual_call_sites=ui_pairs,direct_branch_kinds=ui_branch_kinds,default_off=True,read_only=True,
     actor_names=['SpringBoard','backboardd'],actor_limit=2,
     original_entry_return_exception_registers_preserved=True,
     aggregate_events_not_paired_waits=True,frame_transfer_enabled=False,
     original_client_vptr_or_methods_modified=False,hardware_observed=False)
 (out/'ui-activity-proof.json').write_text(json.dumps(uiproof,indent=2)+'\n')
 proof['ui_activity_observer_verified']=True
+
+mode_header=Path('lmipro/package/LmiproModePolicy.h')
+assert display_build['source_sha256']['kits/lmipro/LmiproModePolicy.h']==sha(mode_header)
+assert 'lmipro-display-mode=1' in report['kernel_args'].split()
+configure=next(n for n in symbols.values() if 'lmiproConfigureDisplayMode' in n and '.cold' not in n)
+mode_sites={}
+for owner,callee in [('_native_legacy_display_late_probe',configure),
+                     ('_sleh_synchronous','_lmipro_ui_fault_event')]:
+    site,kind=ui_direct_edge(owner,callee);mode_sites[owner+' -> '+callee]=dict(site=hex(site),kind=kind)
+assert b'Mode policy stage=%u status=%d scale=1 rotation=0' in d
+assert b'UI first BRK valid=%u pc=%llx x24=%llx x25=%llx x26=%llx' in d
+fault_patch=Path('lmipro/patches/xnu/lmipro-ui-fault-registers.patch')
+for source in [mode_header,fault_patch]:shutil.copyfile(source,out/('rendered-'+source.name if source.suffix=='.patch' else source.name))
+modeproof=dict(kernel_sha256=sha(raw),header_sha256=sha(mode_header),fault_patch_sha256=sha(fault_patch),
+    actual_direct_edges=mode_sites,default_off=True,logical_scale=1,rotation=0,
+    existing_property_conflicts_refused=True,partial_publication_rolled_back=True,
+    original_userspace_validation_modified=False,frame_transfer_enabled=False,
+    fault_observer_reads_only_saved_kernel_registers=True,hardware_observed=False)
+(out/'display-mode-proof.json').write_text(json.dumps(modeproof,indent=2)+'\n')
+proof['display_mode_policy_verified']=True
 
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
