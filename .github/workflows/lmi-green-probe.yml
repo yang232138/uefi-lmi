@@ -1,8 +1,8 @@
-name: LMIPRO post-open compositor message and event entry stacks
+name: LMIPRO pre-open wait entries and committed compositor exits
 'on':
   push:
     branches:
-    - codex/lmipro-ui-wait-stacks-20261111
+    - codex/lmipro-ui-exit-stacks-20261111
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 6cbb95a142988cf3c36c7b2c5263ec6cbab4590d
+      DEVICE_REF: 646db26c67231e05c80c535fdc5346fa33c0d338
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -342,7 +342,13 @@ jobs:
     - name: Check bounded current-thread UI stack sampling
       run: 'c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_ui_stacks.cpp -o /tmp/lmipro-ui-stacks
 
-        /tmp/lmipro-ui-stacks'
+        /tmp/lmipro-ui-stacks
+
+        c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_ui_exit.cpp -o /tmp/lmipro-ui-exit
+
+        /tmp/lmipro-ui-exit
+
+        '
     - name: Build the fresh flag-off reference candidate
       run: 'cd unixnu
 
@@ -472,7 +478,7 @@ jobs:
       run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload\
         \ -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache\
         \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr \\\n  --kernel-arg\
-        \ lmipro-data-watch=600 \\\n  --kernel-arg lmipro-display-watch=2 \\\n  --kernel-arg lmipro-display-init=1\
+        \ lmipro-data-watch=120 \\\n  --kernel-arg lmipro-display-watch=2 \\\n  --kernel-arg lmipro-display-init=1\
         \ \\\n  --kernel-arg offline-legacy-phase=4 \\\n  --kernel-arg offline-legacy-register=1 \\\n  --kernel-arg\
         \ offline-legacy-gop=1 \\\n  --kernel-arg lmipro-display-calls=1 \\\n  --kernel-arg lmipro-ui-stacks=1 \\\
         \n  --kernel-arg lmipro-ui-watch=1 \\\n  --kernel-arg lmipro-display-mode=1 \\\n  --kernel-arg lmipro-display-cpu=1\
@@ -491,7 +497,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-ui-wait-stacks
+        name: lmi-ui-exit-stacks
         path: 'output/boot.img
 
           output/boot.json
@@ -648,6 +654,14 @@ jobs:
 
           output/ui-stacks-proof.json
 
-          output/LmiproUIStacks.h'
+          output/LmiproUIStacks.h
+
+          output/ui-exits-proof.json
+
+          output/LmiproUIExit.h
+
+          output/rendered-lmipro-ui-exit.patch
+
+          '
         if-no-files-found: warn
         retention-days: 3

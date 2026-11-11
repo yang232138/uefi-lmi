@@ -144,7 +144,7 @@ assert binding_proof['volatile_provider_sha256']==sha(Path('lmipro/package/Lmipr
 shutil.copyfile(bindings,out/'ram-block-bindings.json')
 proof.update(volatile_data=True,data_seed=seed,data_mounted_on_handset=False,userdata_reflash_required=False)
 
-assert 'lmipro-data-watch=600' in report['kernel_args'].split()
+assert 'lmipro-data-watch=120' in report['kernel_args'].split()
 assert b'LMIPRO DATA CHECKPOINT timeout=%u' in d
 assert any('lmiproDataWatchThread' in name for name in symbols.values())
 assert struct.unpack_from('<i',d,m.file_offset(byname['_lmipro_data_stage']))[0]==-2
@@ -160,7 +160,7 @@ watch_words=[struct.unpack_from('<I',d,m.file_offset(va))[0] for va in range(wat
 assert not any(map(conditional_branch,watch_words)), 'A conditional silent-success path remains in the watch thread'
 proof['watch_snapshots_success_stage']=True
 (out/'data-watch-proof.json').write_text(json.dumps(dict(header_sha256=watch_header,
-    kernel_sha256=sha(raw),initial_data_stage=-2,delay_seconds=600,default_off=True,
+    kernel_sha256=sha(raw),initial_data_stage=-2,delay_seconds=120,default_off=True,
     actual_watch_thread_linked=True,snapshots_success_stage=True,conditional_free_watch=True,hardware_checkpoint_observed=False),indent=2)+'\n')
 
 # Check the actual post-Data diagnostics and original API calls in this kernel.
@@ -227,7 +227,7 @@ shutil.copyfile(stage_patch,out/'rendered-lmipro-filesig-stage.patch')
 shutil.copyfile(native_patch,out/'original-native-4k-signature-hash-cache.patch')
 signproof=dict(kernel_sha256=sha(raw),header_sha256=sha(sign_header),stage_patch_sha256=sha(stage_patch),
     native_signature_patch_sha256=sha(native_patch),actual_wait_call=hex(wait_site),actual_fcntl_trace_call=hex(fcntl_site),
-    counter_symbols=counters,sample_seconds=[0,30,600],original_authentication_and_errors_preserved=True,hardware_observed=False)
+    counter_symbols=counters,sample_seconds=[0,30,120],original_authentication_and_errors_preserved=True,hardware_observed=False)
 (out/'sign-progress-proof.json').write_text(json.dumps(signproof,indent=2)+'\n')
 proof['signature_progress_diagnostic']=True
 # Qualify the read-only display observer in this actual linked kernel.
@@ -249,7 +249,7 @@ assert b'published MobileFB=%d LegacyFB=%d IOSurface=%d GOP=%d' in d
 displayproof=dict(kernel_sha256=sha(raw),header_sha256=sha(display_header),actual_call_sites=display_calls,
     source_sha256=sha(Path('lmipro/package/LmiproUfsBlock.cpp')),default_off=True,
     read_only=True,hardware_observed=False,no_device_mapping_or_display_operations=True,
-    sample_delay_seconds=600,published_count_cap=33)
+    sample_delay_seconds=120,published_count_cap=33)
 (out/'display-watch-proof.json').write_text(json.dumps(displayproof,indent=2)+'\n')
 shutil.copyfile(display_header,out/'LmiproDisplayWatch.h')
 proof['display_handoff_observer_verified']=True
@@ -505,7 +505,7 @@ assert 'backtrace_user(frames,capacity,nullptr,&info)' in board_text
 assert 'gLmiproUIStacks[8]' in stack_header.read_text() and 'uintptr_t frames[8]' in stack_header.read_text()
 stack_text=stack_header.read_text()
 assert '(code!=-47 && code!=375)' in stack_text
-assert '__atomic_load_n(&gLmiproUIStacksDisplayPid,__ATOMIC_ACQUIRE)!=pid' in stack_text
+assert '__atomic_load_n(&gLmiproUIStacksDisplayPid,__ATOMIC_ACQUIRE)!=pid' not in stack_text
 assert stack_text.index('(code!=-47 && code!=375)') < stack_text.index('unsigned slot=')
 assert 'status==kIOReturnSuccess && client' in board_text
 assert 'if(!strcmp(name,"backboardd"))lmipro_ui_stack_display_open(proc_selfpid())' in board_text
@@ -515,8 +515,42 @@ stacksproof=dict(kernel_sha256=sha(raw),header_sha256=sha(stack_header),actual_d
  faultable_context_required=True,observation_locks_released_before_copyin=True,
  default_off=True,original_user_code_and_syscall_results_preserved=True,
  wait_state_proof=False,handset_observed=False,
- post_successful_backboardd_open=True,selected_entry_codes=[-47,375],startup_calls_skip_before_reservation=True)
+ post_successful_backboardd_open=False,selected_entry_codes=[-47,375],startup_calls_skip_before_reservation=True)
 (out/'ui-stacks-proof.json').write_text(json.dumps(stacksproof,indent=2)+'\n')
+exit_header=Path('lmipro/package/LmiproUIExit.h')
+exit_patch=Path('lmipro/patches/xnu/lmipro-ui-exit.patch')
+assert sha(exit_header)==watch_build['ui_exit_header_sha256']
+assert 'lmipro-data-watch=120' in report['kernel_args'].split()
+assert 'lmipro-data-watch=600' not in report['kernel_args'].split()
+exit_sites={}
+# Accept either compiler layout only through a real exit_with_reason path.
+try:
+ site,kind=ui_direct_edge('_exit_with_reason','_lmipro_ui_exit_event')
+ exit_sites['_exit_with_reason -> _lmipro_ui_exit_event']=dict(site=hex(site),kind=kind)
+except AssertionError:
+ for owner,callee in [('_exit_with_reason','_proc_prepareexit'),('_proc_prepareexit','_lmipro_ui_exit_event')]:
+  site,kind=ui_direct_edge(owner,callee);exit_sites[owner+' -> '+callee]=dict(site=hex(site),kind=kind)
+site,kind=ui_direct_edge(checkpoint,'_lmipro_ui_exit_report')
+exit_sites[checkpoint+' -> _lmipro_ui_exit_report']=dict(site=hex(site),kind=kind)
+rec_path=root/'tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/kern_exit.o.json'
+rec=json.loads(rec_path.read_text().strip().rstrip(','));argv=rec['arguments']
+assert any(a=='-DLMIPRO_USER_TRACE=1' or (a=='LMIPRO_USER_TRACE=1' and i and argv[i-1]=='-D') for i,a in enumerate(argv))
+exit_source=Path(rec['file']).read_text()
+assert 'lmipro_ui_exit_event(proc_getpid(p), p->p_name, rv,' in exit_source
+assert 'boot_progress_exit(proc_getpid(p),p->p_name,rv,' in exit_source
+assert '"kern_exit.o_CFLAGS_ADD=-DLMIPRO_USER_TRACE=$SHENG_PMGR"' in Path('unixnu/scripts/build-xnu-4k-baseline.sh').read_text()
+assert 'bsd/kern/kern_exit.c' in flags['target_files']
+for p in [exit_header,exit_patch]:shutil.copyfile(p,out/('rendered-'+p.name if p.suffix=='.patch' else p.name))
+exitproof=dict(kernel_sha256=sha(raw),header_sha256=sha(exit_header),patch_sha256=sha(exit_patch),
+ source_sha256=sha(Path(rec['file'])),compile_record=rec,per_file_flag1_verified=True,
+ actual_direct_edges=exit_sites,raw_wait_status_and_reason_preserved=True,
+ kernel_scalar_name_copies_only=True,nonwaiting=True,default_off=True,
+ observation_after_original_exit_commit=True,original_exit_policy_preserved=True,
+ original_boot_progress_hook_preserved=True,first_and_last_per_actor=True,actor_limit=2,
+ observation_seconds=120,handset_observed=False)
+(out/'ui-exits-proof.json').write_text(json.dumps(exitproof,indent=2)+'\n')
+proof['committed_compositor_exits_verified']=True
+
 proof['bounded_current_thread_compositor_stacks_verified']=True
 
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
