@@ -491,6 +491,26 @@ ownerproof=dict(kernel_sha256=sha(raw),patch_sha256=sha(owner_patch),actual_dire
 (out/'data-owner-proof.json').write_text(json.dumps(ownerproof,indent=2)+'\n')
 proof['ram_data_mobile_owner_fix_verified']=True
 
+stack_header=Path('lmipro/package/LmiproUIStacks.h')
+assert watch_build['ui_stack_header_sha256']==sha(stack_header)
+assert 'lmipro-ui-stacks=1' in report['kernel_args'].split()
+stack_sites={}
+sampler=next(n for n in symbols.values() if 'lmiproSampleUIStack' in n and '.cold' not in n)
+for owner,callee in [('_lmipro_ui_user_event',sampler),(sampler,'_lmipro_ui_stack_capture'),
+ ('_lmipro_ui_stack_capture','_backtrace_user'),(checkpoint,'_lmipro_ui_stack_report')]:
+ site,kind=ui_direct_edge(owner,callee);stack_sites[owner+' -> '+callee]=dict(site=hex(site),kind=kind)
+assert 'ml_at_interrupt_context()' in board_text and '!preemption_enabled()' in board_text
+assert 'backtrace_user(frames,capacity,nullptr,&info)' in board_text
+assert 'gLmiproUIStacks[8]' in stack_header.read_text() and 'uintptr_t frames[8]' in stack_header.read_text()
+shutil.copyfile(stack_header,out/stack_header.name)
+stacksproof=dict(kernel_sha256=sha(raw),header_sha256=sha(stack_header),actual_direct_edges=stack_sites,
+ samples_cap=8,frames_cap=8,delay_seconds=30,current_thread_only=True,
+ faultable_context_required=True,observation_locks_released_before_copyin=True,
+ default_off=True,original_user_code_and_syscall_results_preserved=True,
+ wait_state_proof=False,handset_observed=False)
+(out/'ui-stacks-proof.json').write_text(json.dumps(stacksproof,indent=2)+'\n')
+proof['bounded_current_thread_compositor_stacks_verified']=True
+
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))
