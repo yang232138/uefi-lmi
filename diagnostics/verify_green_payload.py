@@ -469,8 +469,17 @@ assert 'code==136 || code==475' in ui_header.read_text()
 assert 'UINT64_C(1)<<29' in ui_header.read_text()
 owner_patch=Path('lmipro/patches/xnu/lmipro-data-mobile-owners.patch')
 owner_sites={}
-for owner,callee in [('_lmipro_data_prepare','_lmipro_data_mobile_owners'),('_lmipro_data_mobile_owners','_vnode_setattr')]:
- site,kind=ui_direct_edge(owner,callee);owner_sites[owner+' -> '+callee]=dict(site=hex(site),kind=kind)
+preparation_candidates=[]
+for candidate in ['_lmipro_data_prepare','_load_init_program']:
+ if candidate not in symbols.values():continue
+ try: site,kind=ui_direct_edge(candidate,'_lmipro_data_mobile_owners')
+ except SystemExit:continue
+ preparation_candidates.append((candidate,site,kind))
+assert len(preparation_candidates)==1
+owner,site,kind=preparation_candidates[0]
+owner_sites[owner+' -> _lmipro_data_mobile_owners']=dict(site=hex(site),kind=kind)
+site,kind=ui_direct_edge('_lmipro_data_mobile_owners','_vnode_setattr')
+owner_sites['_lmipro_data_mobile_owners -> _vnode_setattr']=dict(site=hex(site),kind=kind)
 assert '_lmipro_data_owner_stage' in symbols.values() and '_lmipro_data_owner_status' in symbols.values()
 assert 'data_mount' in owner_patch.read_text() and 'vnode_mount(vp) != data_mount' in owner_patch.read_text()
 shutil.copyfile(owner_patch,out/'rendered-lmipro-data-mobile-owners.patch')
