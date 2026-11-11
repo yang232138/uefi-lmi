@@ -1,8 +1,8 @@
-name: LMIPRO complete pre-submission display evidence
+name: LMIPRO exact RAM Data mobile directory ownership fix
 'on':
   push:
     branches:
-    - codex/lmipro-display-submit-20261111
+    - codex/lmipro-data-owners-20261111
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: b6ee1df2f00f3a952310c4a71fe541363a7d617f
+      DEVICE_REF: ae3342dd10a4d3f680bf60d415cda6b7c7d9d8f9
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -337,6 +337,8 @@ jobs:
         /tmp/lmipro-scanout-policy
 
         '
+    - name: Check exact scoped RAM Data ownership helper
+      run: python3 lmipro/tests/test_lmipro_data_owners.py
     - name: Build the fresh flag-off reference candidate
       run: 'cd unixnu
 
@@ -485,7 +487,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-display-submit
+        name: lmi-data-owners
         path: 'output/boot.img
 
           output/boot.json
@@ -634,6 +636,10 @@ jobs:
           output/LmiproScanoutPolicy.h
 
 
-          output/display-submit-proof.json'
+          output/display-submit-proof.json
+
+          output/data-owner-proof.json
+
+          output/rendered-lmipro-data-mobile-owners.patch'
         if-no-files-found: warn
         retention-days: 3

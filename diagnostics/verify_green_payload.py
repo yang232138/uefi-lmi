@@ -465,6 +465,23 @@ submitproof=dict(kernel_sha256=sha(raw),trace_header_sha256=sha(trace_header),
 (out/'display-submit-proof.json').write_text(json.dumps(submitproof,indent=2)+'\n')
 proof['complete_display_submission_observation_verified']=True
 
+assert 'code==136 || code==475' in ui_header.read_text()
+assert 'UINT64_C(1)<<29' in ui_header.read_text()
+owner_patch=Path('lmipro/patches/xnu/lmipro-data-mobile-owners.patch')
+owner_sites={}
+for owner,callee in [('_lmipro_data_prepare','_lmipro_data_mobile_owners'),('_lmipro_data_mobile_owners','_vnode_setattr')]:
+ site,kind=ui_direct_edge(owner,callee);owner_sites[owner+' -> '+callee]=dict(site=hex(site),kind=kind)
+assert '_lmipro_data_owner_stage' in symbols.values() and '_lmipro_data_owner_status' in symbols.values()
+assert 'data_mount' in owner_patch.read_text() and 'vnode_mount(vp) != data_mount' in owner_patch.read_text()
+shutil.copyfile(owner_patch,out/'rendered-lmipro-data-mobile-owners.patch')
+ownerproof=dict(kernel_sha256=sha(raw),patch_sha256=sha(owner_patch),actual_direct_edges=owner_sites,
+ paths=['/private/var/mobile/tmp','/private/var/mobile/Documents','/private/var/mobile/Containers'],
+ allowed_initial_uid=[0,501],required_gid=501,required_mode=493,target_uid=501,
+ requires_qualified_ram_mount=True,unexpected_metadata_refused=True,mode_preserved=True,
+ actual_errors_preserved=True,readback_verified_by_source=True,handset_verified=False)
+(out/'data-owner-proof.json').write_text(json.dumps(ownerproof,indent=2)+'\n')
+proof['ram_data_mobile_owner_fix_verified']=True
+
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))
