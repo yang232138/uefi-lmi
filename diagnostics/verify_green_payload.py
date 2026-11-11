@@ -497,17 +497,25 @@ assert 'lmipro-ui-stacks=1' in report['kernel_args'].split()
 stack_sites={}
 sampler=next(n for n in symbols.values() if 'lmiproSampleUIStack' in n and '.cold' not in n)
 for owner,callee in [('_lmipro_ui_user_event',sampler),(sampler,'_lmipro_ui_stack_capture'),
- ('_lmipro_ui_stack_capture','_backtrace_user'),(checkpoint,'_lmipro_ui_stack_report')]:
+ ('_lmipro_ui_stack_capture','_backtrace_user'),(checkpoint,'_lmipro_ui_stack_report'),
+ ('_native_legacy_client_observed','_lmipro_ui_stack_display_open')]:
  site,kind=ui_direct_edge(owner,callee);stack_sites[owner+' -> '+callee]=dict(site=hex(site),kind=kind)
 assert 'ml_at_interrupt_context()' in board_text and '!preemption_enabled()' in board_text
 assert 'backtrace_user(frames,capacity,nullptr,&info)' in board_text
 assert 'gLmiproUIStacks[8]' in stack_header.read_text() and 'uintptr_t frames[8]' in stack_header.read_text()
+stack_text=stack_header.read_text()
+assert '(code!=-47 && code!=375)' in stack_text
+assert '__atomic_load_n(&gLmiproUIStacksDisplayPid,__ATOMIC_ACQUIRE)!=pid' in stack_text
+assert stack_text.index('(code!=-47 && code!=375)') < stack_text.index('unsigned slot=')
+assert 'status==kIOReturnSuccess && client' in board_text
+assert 'if(!strcmp(name,"backboardd"))lmipro_ui_stack_display_open(proc_selfpid())' in board_text
 shutil.copyfile(stack_header,out/stack_header.name)
 stacksproof=dict(kernel_sha256=sha(raw),header_sha256=sha(stack_header),actual_direct_edges=stack_sites,
  samples_cap=8,frames_cap=8,delay_seconds=30,current_thread_only=True,
  faultable_context_required=True,observation_locks_released_before_copyin=True,
  default_off=True,original_user_code_and_syscall_results_preserved=True,
- wait_state_proof=False,handset_observed=False)
+ wait_state_proof=False,handset_observed=False,
+ post_successful_backboardd_open=True,selected_entry_codes=[-47,375],startup_calls_skip_before_reservation=True)
 (out/'ui-stacks-proof.json').write_text(json.dumps(stacksproof,indent=2)+'\n')
 proof['bounded_current_thread_compositor_stacks_verified']=True
 
