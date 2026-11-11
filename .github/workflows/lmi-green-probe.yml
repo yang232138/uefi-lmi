@@ -1,8 +1,8 @@
-name: LMIPRO real original CPU frame presentation
+name: LMIPRO complete pre-submission display evidence
 'on':
   push:
     branches:
-    - codex/lmipro-display-cpu-20261111
+    - codex/lmipro-display-submit-20261111
   workflow_dispatch: null
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 421faa7b3165c7e8be53dd99864f9badf282dc6a
+      DEVICE_REF: b6ee1df2f00f3a952310c4a71fe541363a7d617f
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -485,7 +485,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lmi-display-cpu
+        name: lmi-display-submit
         path: 'output/boot.img
 
           output/boot.json
@@ -633,6 +633,7 @@ jobs:
 
           output/LmiproScanoutPolicy.h
 
-          '
+
+          output/display-submit-proof.json'
         if-no-files-found: warn
         retention-days: 3

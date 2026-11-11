@@ -357,7 +357,7 @@ dispatchproof=dict(kernel_sha256=sha(raw),trace_header_sha256=sha(trace_header),
     actual_call_sites=list(map(hex,trace_sites)),dispatcher=dispatcher,
     original_dispatch_restored_sha256=hashlib.sha256(restored.encode()).hexdigest(),
     source_original_call_locks_and_return_preserved=True,class_filter='IOMobileFramebufferUserClient',
-    max_scalar_inputs_copied=3,selector_table_size=96,snapshot_rows=4,
+    max_scalar_inputs_copied=3,selector_table_size=96,snapshot_rows=16,
     default_off=True,nonwaiting=True,frame_transfer_enabled=False,hardware_observed=False,
     original_client_vptr_or_methods_modified=False)
 for path in [trace_header,trace_patch]:shutil.copyfile(path,out/('rendered-'+path.name if path.suffix=='.patch' else path.name))
@@ -444,6 +444,26 @@ cpuproof=dict(kernel_sha256=sha(raw),header_sha256=sha(cpu_header),actual_direct
     actual_frame_presented=False,handset_ui_observed=False)
 (out/'display-cpu-proof.json').write_text(json.dumps(cpuproof,indent=2)+'\n')
 proof['cpu_presentation_path_verified']=True
+
+
+assert dispatchproof['snapshot_rows']==16
+assert 'LmiproDisplaySelector rows[16]' in trace_header.read_text()
+assert 'gLmiproClients[8]' in trace_header.read_text()
+assert 'pending>=0 && !gLmiproClients[pending].ambiguous' in trace_header.read_text()
+board_text=Path('lmipro/package/LmiproDisplay.cpp').read_text()
+assert 'kind==1 && status==kIOReturnSuccess && args && args->scalarOutput' in board_text
+assert 'unsigned count=outputCount<3?outputCount:3;' in board_text
+assert 'lmiproClientEvent(0,thread_tid(current_thread()),type,proc_selfpid(),name,0)' in board_text
+assert 'lmiproClientEvent(1,thread_tid(current_thread()),0,0,nullptr,(uint32_t)status)' in board_text
+submitproof=dict(kernel_sha256=sha(raw),trace_header_sha256=sha(trace_header),
+ board_source_sha256=sha(Path('lmipro/package/LmiproDisplay.cpp')),
+ watch_header_sha256=sha(Path('lmipro/package/LmiproDisplayWatch.h')),
+ selector_limit=96,snapshot_rows=16,client_history_cap=8,max_success_scalar_words=3,
+ copied_thread_ids_only=True,nested_or_missing_events_not_paired=True,
+ original_status_and_dispatch_preserved=True,display_behavior_changed=False,
+ handset_ui_observed=False)
+(out/'display-submit-proof.json').write_text(json.dumps(submitproof,indent=2)+'\n')
+proof['complete_display_submission_observation_verified']=True
 
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
