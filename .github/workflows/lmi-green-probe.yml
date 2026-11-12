@@ -1,9 +1,8 @@
-name: LMIPRO pre-open wait entries and committed compositor exits
+name: LMIPRO original watchdog client with board deadline backend
 'on':
   push:
     branches:
-    - codex/lmipro-ui-exit-fixture-20261111
-  workflow_dispatch: null
+    - codex/lmipro-system-watchdog-20261112
 permissions:
   contents: read
   actions: read
@@ -18,7 +17,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 214988af85fdf443210a71d26abc6c102382e470
+      DEVICE_REF: 54c6d73ad19696b586d9440b515497a18dcbe115
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -243,8 +242,8 @@ jobs:
 
         echo "device_sha=$(git -C lmipro rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-        echo "config_sha=$(shasum -a 256 unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/.config | cut -d'' '' -f1)"
-        >> "$GITHUB_OUTPUT"
+        echo "config_sha=$(shasum -a 256 unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/.config | cut -d''
+        '' -f1)" >> "$GITHUB_OUTPUT"
 
         '
     - name: Restore the built kernel
@@ -285,6 +284,8 @@ jobs:
         /tmp/lmipro-volatile-store
 
         '
+    - name: Test LMIPRO watchdog lifecycle
+      run: python3 lmipro/tests/watchdog/run.py
     - name: Check board Data snapshot semantics
       run: 'c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_data_watch.cpp -o /tmp/lmipro-data-watch
 
@@ -457,14 +458,15 @@ jobs:
 
         '
     - name: Build the trust cache bundle
-      run: "cd unixnu\n# Extract the two modules the payload trust cache carries. The board has\n# no [ipsw] fetch\
-        \ list, so name them explicitly.\n./unixnu ipsw fetch -D ../lmipro StaticTrustCache \"Cryptex1,SystemTrustCache\"\
-        \ KernelCache\n# The extracted files are named after the IPSW members (044-...dmg.trustcache),\n# so pair\
-        \ them by the component recorded in the sidecar JSON.\nstatic=$(grep -l '\"component\": \"StaticTrustCache\"\
+      run: "cd unixnu\n# Extract the two modules the payload trust cache carries. The board has\n# no [ipsw]\
+        \ fetch list, so name them explicitly.\n./unixnu ipsw fetch -D ../lmipro StaticTrustCache \"Cryptex1,SystemTrustCache\"\
+        \ KernelCache\n# The extracted files are named after the IPSW members (044-...dmg.trustcache),\n# so\
+        \ pair them by the component recorded in the sidecar JSON.\nstatic=$(grep -l '\"component\": \"StaticTrustCache\"\
         ' out/ipsw/*/*.json | head -1)\nsystem=$(grep -l '\"component\": \"Cryptex1,SystemTrustCache\"' out/ipsw/*/*.json\
-        \ | head -1)\nstatic=${static%.json}\nsystem=${system%.json}\necho \"static: $static\"\necho \"system: $system\"\
-        \ntest -f \"$static\" && test -f \"$system\"\npython3 ../overlay/scripts/build-trust-bundle.py \\\n  --static\
-        \ \"$static\" \\\n  --system \"$system\" \\\n  --output trust.bundle \\\n  --report trust.json\ncat trust.json\n"
+        \ | head -1)\nstatic=${static%.json}\nsystem=${system%.json}\necho \"static: $static\"\necho \"system:\
+        \ $system\"\ntest -f \"$static\" && test -f \"$system\"\npython3 ../overlay/scripts/build-trust-bundle.py\
+        \ \\\n  --static \"$static\" \\\n  --system \"$system\" \\\n  --output trust.bundle \\\n  --report\
+        \ trust.json\ncat trust.json\n"
     - name: Check exact canonical CPU pixel copy
       run: 'c++ -std=c++17 -Wall -Wextra -Werror -I unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/tree/drivers/GopFramebuffer
         lmipro/tests/test_lmipro_cpu_pixels.cpp -o /tmp/lmipro-cpu-pixels
@@ -475,24 +477,47 @@ jobs:
     - name: Build the payload
       env:
         UNIXNU_UNIQUE_CHIP_ID: '0x8011'
-      run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build payload\
-        \ -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n  --trust-cache\
-        \ trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr \\\n  --kernel-arg\
-        \ lmipro-data-watch=120 \\\n  --kernel-arg lmipro-display-watch=2 \\\n  --kernel-arg lmipro-display-init=1\
-        \ \\\n  --kernel-arg offline-legacy-phase=4 \\\n  --kernel-arg offline-legacy-register=1 \\\n  --kernel-arg\
-        \ offline-legacy-gop=1 \\\n  --kernel-arg lmipro-display-calls=1 \\\n  --kernel-arg lmipro-ui-stacks=1 \\\
-        \n  --kernel-arg lmipro-ui-watch=1 \\\n  --kernel-arg lmipro-display-mode=1 \\\n  --kernel-arg lmipro-display-cpu=1\
-        \ \\\n  --kernel-arg offline-legacy-pm=1 \\\n  --kernel-arg offline-legacy-validate=1 \\\n  --kernel-arg\
-        \ offline-legacy-transfer=1 \\\n  --kernel-arg offline-legacy-cpu-present=1\n"
+      run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build\
+        \ payload -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n\
+        \  --trust-cache trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr\
+        \ \\\n  --kernel-arg lmipro-system-watchdog=1 \\\n  --kernel-arg lmipro-data-watch=120 \\\n  --kernel-arg\
+        \ lmipro-display-watch=2 \\\n  --kernel-arg lmipro-display-init=1 \\\n  --kernel-arg offline-legacy-phase=4\
+        \ \\\n  --kernel-arg offline-legacy-register=1 \\\n  --kernel-arg offline-legacy-gop=1 \\\n  --kernel-arg\
+        \ lmipro-display-calls=1 \\\n  --kernel-arg lmipro-ui-stacks=1 \\\n  --kernel-arg lmipro-ui-watch=1\
+        \ \\\n  --kernel-arg lmipro-display-mode=1 \\\n  --kernel-arg lmipro-display-cpu=1 \\\n  --kernel-arg\
+        \ offline-legacy-pm=1 \\\n  --kernel-arg offline-legacy-validate=1 \\\n  --kernel-arg offline-legacy-transfer=1\
+        \ \\\n  --kernel-arg offline-legacy-cpu-present=1\n"
     - name: Pack the boot image with the payload in the kernel
-      run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware artifact\
-        \ is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\ntest -n \"$payload\"\
-        \ || { echo 'no payload volume produced'; exit 1; }\nout=unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/boot/boot.img\n\
+      run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware\
+        \ artifact is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\n\
+        test -n \"$payload\" || { echo 'no payload volume produced'; exit 1; }\nout=unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro/boot/boot.img\n\
         python3 overlay/scripts/pack_bootimg.py \\\n  --uefi uefi \\\n  --fd \"$fd\" \\\n  --payload \"$payload\"\
-        \ \\\n  --dtb overlay/DeviceTree/lmi.dtb \\\n  --payload-base 0x93200000 \\\n  --out \"$out\"\nls -l \"\
-        $out\"\n"
+        \ \\\n  --dtb overlay/DeviceTree/lmi.dtb \\\n  --payload-base 0x93200000 \\\n  --out \"$out\"\nls -l\
+        \ \"$out\"\n"
     - name: Verify actual payload probe installation and collect inputs
       run: python3 overlay/diagnostics/verify_green_payload.py
+    - name: Verify linked watchdog and package evidence
+      run: 'set -euo pipefail
+
+        root=unixnu/out/lmipro/ipados-17.7.11-21H461/lmipro
+
+        llvm-nm -n "$root/kernel/kernel.macho" > watchdog-symbols.txt
+
+        grep -E '' [TtS] _lmipro_ram_watchdog_prepare$'' watchdog-symbols.txt
+
+        python3 - <<''PY''
+
+        import json,pathlib
+
+        out=pathlib.Path(''output'')
+
+        args=json.loads((out/''payload.json'').read_text())[''kernel_args''].split()
+
+        assert args.count(''lmipro-system-watchdog=1'')==1
+
+        PY
+
+        cp "$root/tree/build/lmipro-watchdog/watchdog-build.json" output/watchdog-build.json'
     - name: Upload the boot image with the payload
       if: always()
       uses: actions/upload-artifact@v4
@@ -662,6 +687,27 @@ jobs:
 
           output/rendered-lmipro-ui-exit.patch
 
+
+          output/watchdog-build.json
+
           '
         if-no-files-found: warn
         retention-days: 3
+    - name: Upload tested kernel packaging inputs
+      uses: actions/upload-artifact@v4
+      with:
+        name: lmipro-watchdog-boot-inputs
+        if-no-files-found: error
+        path: 'output/boot.img
+
+          output/payload.json
+
+          output/verification.json
+
+          output/watchdog-build.json
+
+          output/boot.json
+
+          output/kernel-original.macho
+
+          output/firmware.dtb'
