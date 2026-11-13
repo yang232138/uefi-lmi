@@ -1,8 +1,8 @@
-name: LMIPRO bounded compositor progress and correlated returns
+name: LMIPRO focused main-thread syscall and copied PC observation
 'on':
   push:
     branches:
-    - codex/lmipro-ui-progress-20261113
+    - codex/lmipro-ui-main-focus-20261113
 permissions:
   contents: read
   actions: read
@@ -17,7 +17,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 061d6e30b9976a3089401ff050a6d1603f2b0b3f
+      DEVICE_REF: 4ecebede0f17b42fc9cfa52112d17176aef06a6f
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -491,9 +491,10 @@ jobs:
         \ \\\n \\\n  --kernel-arg lmipro-data-watch=600 \\\n  --kernel-arg lmipro-display-watch=2 \\\n  --kernel-arg\
         \ lmipro-display-init=1 \\\n  --kernel-arg offline-legacy-phase=4 \\\n  --kernel-arg offline-legacy-register=1\
         \ \\\n  --kernel-arg offline-legacy-gop=1 \\\n  --kernel-arg lmipro-display-calls=1 \\\n  --kernel-arg\
-        \ lmipro-ui-stacks=1 \\\n  --kernel-arg lmipro-ui-watch=1 \\\n  --kernel-arg lmipro-display-mode=1\
-        \ \\\n  --kernel-arg lmipro-display-cpu=1 \\\n  --kernel-arg offline-legacy-pm=1 \\\n  --kernel-arg\
-        \ offline-legacy-validate=1 \\\n  --kernel-arg offline-legacy-transfer=1 \\\n  --kernel-arg offline-legacy-cpu-present=1\n"
+        \ lmipro-ui-stacks=1 \\\n  --kernel-arg lmipro-ui-focus=357 \\\n  --kernel-arg lmipro-ui-watch=1 \\\
+        \n  --kernel-arg lmipro-display-mode=1 \\\n  --kernel-arg lmipro-display-cpu=1 \\\n  --kernel-arg offline-legacy-pm=1\
+        \ \\\n  --kernel-arg offline-legacy-validate=1 \\\n  --kernel-arg offline-legacy-transfer=1 \\\n  --kernel-arg\
+        \ offline-legacy-cpu-present=1\n"
     - name: Pack the boot image with the payload in the kernel
       run: "fd=$(find artifact -name 'SILICIUM_UEFI.fd' | head -1)\ntest -n \"$fd\" || { echo 'the firmware\
         \ artifact is missing the FD'; exit 1; }\npayload=$(find unixnu/out -name 'payload.img' | head -1)\n\
