@@ -251,8 +251,9 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
-        key: mount-recovery-v1-lmi-kernel-pmgr-v4-${{ steps.source-revisions.outputs.unixnu_sha }}-${{ steps.source-revisions.outputs.device_sha
-          }}-${{ steps.source-revisions.outputs.config_sha }}-0x8011
+        key: mount-recovery-v1-mount-recovery-v1-lmi-kernel-pmgr-v4-${{ steps.source-revisions.outputs.unixnu_sha
+          }}-${{ steps.source-revisions.outputs.device_sha }}-${{ steps.source-revisions.outputs.config_sha
+          }}-0x8011
     - name: Select flag-off reference only on a source cache miss
       run: 'python3 - <<''PY''
 
@@ -436,7 +437,7 @@ jobs:
       if: steps.kernel-cache.outputs.cache-hit != 'true'
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
-        key: mount-recovery-v1-${{ steps.kernel-cache.outputs.cache-primary-key }}
+        key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
     - name: Load and qualify PMGR evidence before constructing the payload
       run: 'python3 - <<''PY''
 
