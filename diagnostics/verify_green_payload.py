@@ -144,7 +144,7 @@ assert binding_proof['volatile_provider_sha256']==sha(Path('lmipro/package/Lmipr
 shutil.copyfile(bindings,out/'ram-block-bindings.json')
 proof.update(volatile_data=True,data_seed=seed,data_mounted_on_handset=False,userdata_reflash_required=False)
 
-assert 'lmipro-data-watch=120' in report['kernel_args'].split()
+assert 'lmipro-data-watch=600' in report['kernel_args'].split()
 assert b'LMIPRO DATA CHECKPOINT timeout=%u' in d
 assert any('lmiproDataWatchThread' in name for name in symbols.values())
 assert struct.unpack_from('<i',d,m.file_offset(byname['_lmipro_data_stage']))[0]==-2
@@ -520,7 +520,7 @@ stacksproof=dict(kernel_sha256=sha(raw),header_sha256=sha(stack_header),actual_d
 exit_header=Path('lmipro/package/LmiproUIExit.h')
 exit_patch=Path('lmipro/patches/xnu/lmipro-ui-exit.patch')
 assert sha(exit_header)==watch_build['ui_exit_header_sha256']
-assert 'lmipro-data-watch=120' in report['kernel_args'].split()
+assert 'lmipro-data-watch=600' in report['kernel_args'].split()
 assert 'lmipro-data-watch=600' not in report['kernel_args'].split()
 exit_sites={}
 # Accept either compiler layout only through a real exit_with_reason path.
