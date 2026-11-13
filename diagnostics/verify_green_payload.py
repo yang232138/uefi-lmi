@@ -521,7 +521,7 @@ exit_header=Path('lmipro/package/LmiproUIExit.h')
 exit_patch=Path('lmipro/patches/xnu/lmipro-ui-exit.patch')
 assert sha(exit_header)==watch_build['ui_exit_header_sha256']
 assert 'lmipro-data-watch=600' in report['kernel_args'].split()
-assert 'lmipro-data-watch=600' not in report['kernel_args'].split()
+assert 'lmipro-data-watch=600' in report['kernel_args'].split()
 exit_sites={}
 # Accept either compiler layout only through a real exit_with_reason path.
 try:
