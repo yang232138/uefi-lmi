@@ -1,8 +1,8 @@
-name: LMIPRO display samples after a successful backboardd open
+name: LMIPRO bounded compositor progress and correlated returns
 'on':
   push:
     branches:
-    - codex/lmipro-display-post-open-20261113
+    - codex/lmipro-ui-progress-20261113
 permissions:
   contents: read
   actions: read
@@ -17,7 +17,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 980e940d014c1de5cde934e4092ff77ff04adfc7
+      DEVICE_REF: 061d6e30b9976a3089401ff050a6d1603f2b0b3f
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
