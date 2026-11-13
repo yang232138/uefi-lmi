@@ -517,7 +517,7 @@ jobs:
 
         args=json.loads((out/''payload.json'').read_text())[''kernel_args''].split()
 
-        assert args.count(''lmipro-system-watchdog=1'')==1
+        assert args.count(''lmipro-system-watchdog=0'')==1
 
         PY
 
