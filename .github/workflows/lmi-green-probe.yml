@@ -484,7 +484,7 @@ jobs:
       run: "cd unixnu\n# panic_screen needs FrameBufferSerialPortLib/Font.h from Mu-Silicium.\n./unixnu build\
         \ payload -D ../lmipro \\\n  --unique-chip-id \"$UNIXNU_UNIQUE_CHIP_ID\" \\\n  --uefi ../uefi \\\n\
         \  --trust-cache trust.bundle \\\n  --kernel-arg amfi=0x4 \\\n  --data-ramdisk ../output/data-seed/data-32.dbr\
-        \ \\\n  --kernel-arg lmipro-system-watchdog=0 \\\n  --kernel-arg lmipro-data-watch=120 \\\n  --kernel-arg\
+        \ \\\n  --kernel-arg lmipro-system-watchdog=1 \\\n  --kernel-arg lmipro-data-watch=120 \\\n  --kernel-arg\
         \ lmipro-display-watch=2 \\\n  --kernel-arg lmipro-display-init=1 \\\n  --kernel-arg offline-legacy-phase=4\
         \ \\\n  --kernel-arg offline-legacy-register=1 \\\n  --kernel-arg offline-legacy-gop=1 \\\n  --kernel-arg\
         \ lmipro-display-calls=1 \\\n  --kernel-arg lmipro-ui-stacks=1 \\\n  --kernel-arg lmipro-ui-watch=1\
@@ -517,7 +517,7 @@ jobs:
 
         args=json.loads((out/''payload.json'').read_text())[''kernel_args''].split()
 
-        assert args.count(''lmipro-system-watchdog=0'')==1
+        assert args.count(''lmipro-system-watchdog=1'')==1
 
         PY
 
