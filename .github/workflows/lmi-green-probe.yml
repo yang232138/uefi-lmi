@@ -17,7 +17,7 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: a3f6856b717b38428799a6d4be8b5a26c07b073e
+      DEVICE_REF: 1587dae6cc6e6d3bc9370c737f26781800545a9d
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
@@ -286,6 +286,10 @@ jobs:
         '
     - name: Test LMIPRO watchdog lifecycle
       run: python3 lmipro/tests/watchdog/run.py
+    - name: Test watchdogd fault capture
+      run: 'c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_ui_trace.cpp -o /tmp/watchdog-fault-test
+
+        /tmp/watchdog-fault-test'
     - name: Check board Data snapshot semantics
       run: 'c++ -std=c++17 -Wall -Wextra -Werror lmipro/tests/test_lmipro_data_watch.cpp -o /tmp/lmipro-data-watch
 
