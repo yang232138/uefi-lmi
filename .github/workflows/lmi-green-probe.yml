@@ -254,6 +254,7 @@ jobs:
         key: mount-recovery-v1-mount-recovery-v1-lmi-kernel-pmgr-v4-${{ steps.source-revisions.outputs.unixnu_sha
           }}-${{ steps.source-revisions.outputs.device_sha }}-${{ steps.source-revisions.outputs.config_sha
           }}-0x8011
+      if: 'false'
     - name: Select flag-off reference only on a source cache miss
       run: 'python3 - <<''PY''
 
@@ -434,7 +435,7 @@ jobs:
       if: steps.kernel-cache.outputs.cache-hit != 'true'
     - name: Preserve the qualified source kernel before payload diagnostics
       uses: actions/cache/save@v4
-      if: steps.kernel-cache.outputs.cache-hit != 'true'
+      if: 'false'
       with:
         path: unixnu/out/lmipro/*/lmipro/kernel
         key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
