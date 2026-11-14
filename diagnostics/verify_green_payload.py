@@ -505,13 +505,17 @@ assert 'backtrace_user(frames,capacity,nullptr,&info)' in board_text
 assert 'gLmiproUIStacks[8]' in stack_header.read_text() and 'uintptr_t frames[8]' in stack_header.read_text()
 stack_text=stack_header.read_text()
 assert 'if(!focused && code!=-47 && code!=375)return;' in stack_text
-assert 'lmipro-ui-focus=357' in report['kernel_args'].split()
+assert 'lmipro-ui-focus=1' in report['kernel_args'].split()
 assert 'gLmiproUIStacksFocusTid=0' in stack_text
 assert 'pid==__atomic_load_n(&gLmiproUIStacksDisplayPid,__ATOMIC_ACQUIRE)' in stack_text
 assert '(!focused && row.postOpen && (now<row.seconds || now-row.seconds<10))' in stack_text
 assert 's.result=result;s.status=status;s.returned=1' in stack_text
 assert '++s.irqCount;s.irqSame=s.irqPC==pc?s.irqSame+1:1;s.irqPC=pc' in stack_text
 assert b'focus%llu' in d and b'Q%llu/%llu@%llx' in d
+assert b'auto%u ev%u capSkip%u' in d
+assert 'thread_tid(current_thread())' in stack_text
+assert 'if(focused)for(unsigned i=8;i>0;--i)if(gLmiproUIStacks[i-1].state!=1)' in stack_text
+assert '++gLmiproUIStacksCapacitySkips' in stack_text
 assert '__atomic_load_n(&gLmiproUIStacksDisplayPid,__ATOMIC_ACQUIRE)!=pid' not in stack_text
 assert stack_text.index('if(!focused && code!=-47 && code!=375)return;') < stack_text.index('unsigned slot=')
 assert 'status==kIOReturnSuccess && client' in board_text
@@ -523,7 +527,7 @@ stacksproof=dict(kernel_sha256=sha(raw),header_sha256=sha(stack_header),actual_d
  default_off=True,original_user_code_and_syscall_results_preserved=True,
  wait_state_proof=False,handset_observed=False,
  post_successful_backboardd_open=False,selected_entry_codes=[-47,375],startup_calls_skip_before_reservation=True,
- focused_tid=357,focused_calls_all=True,focused_no_rate_limit=True,IRQ_saved_PC_only=True)
+ focused_tid=None,focus_mode='first_successful_display_opener',capacity_rejection_reported=True,focused_calls_all=True,focused_no_rate_limit=True,IRQ_saved_PC_only=True)
 (out/'ui-stacks-proof.json').write_text(json.dumps(stacksproof,indent=2)+'\n')
 exit_header=Path('lmipro/package/LmiproUIExit.h')
 exit_patch=Path('lmipro/patches/xnu/lmipro-ui-exit.patch')

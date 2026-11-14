@@ -1,8 +1,11 @@
-name: LMIPRO focused main-thread syscall and copied PC observation
+name: LMIPRO automatic display-opener diagnostic
 'on':
-  push:
-    branches:
-    - codex/lmipro-ui-main-focus-20261113
+  workflow_dispatch:
+    inputs:
+      device_ref:
+        description: Immutable 40-character SHA of the reviewed auto-focus device commit
+        required: true
+        type: string
 permissions:
   contents: read
   actions: read
@@ -17,11 +20,14 @@ jobs:
       UNIXNU_REPO: yang232138/UniXNU
       UNIXNU_REF: bbde4a06d695cb5191735a14b1eaad0aca4883a3
       DEVICE_REPO: yang232138/lmipro
-      DEVICE_REF: 4ecebede0f17b42fc9cfa52112d17176aef06a6f
+      DEVICE_REF: ${{ inputs.device_ref }}
       MU_COMMIT: e51cd877e31c8fbb322032dc4cb6715e83d25ad3
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GITHUB_TOKEN: ${{ github.token }}
     steps:
+    - name: Require an immutable device source revision
+      run: '[[ "$DEVICE_REF" =~ ^[0-9a-f]{40}$ ]] || { echo "A full reviewed commit SHA is required"; exit
+        1; }'
     - name: Check out this overlay
       uses: actions/checkout@v4
       with:
@@ -493,8 +499,8 @@ jobs:
         \ \\\n \\\n  --kernel-arg lmipro-data-watch=600 \\\n  --kernel-arg lmipro-display-watch=2 \\\n  --kernel-arg\
         \ lmipro-display-init=1 \\\n  --kernel-arg offline-legacy-phase=4 \\\n  --kernel-arg offline-legacy-register=1\
         \ \\\n  --kernel-arg offline-legacy-gop=1 \\\n  --kernel-arg lmipro-display-calls=1 \\\n  --kernel-arg\
-        \ lmipro-ui-stacks=1 \\\n  --kernel-arg lmipro-ui-focus=357 \\\n  --kernel-arg lmipro-ui-watch=1 \\\
-        \n  --kernel-arg lmipro-display-mode=1 \\\n  --kernel-arg lmipro-display-cpu=1 \\\n  --kernel-arg offline-legacy-pm=1\
+        \ lmipro-ui-stacks=1 \\\n  --kernel-arg lmipro-ui-focus=1 \\\n  --kernel-arg lmipro-ui-watch=1 \\\n\
+        \  --kernel-arg lmipro-display-mode=1 \\\n  --kernel-arg lmipro-display-cpu=1 \\\n  --kernel-arg offline-legacy-pm=1\
         \ \\\n  --kernel-arg offline-legacy-validate=1 \\\n  --kernel-arg offline-legacy-transfer=1 \\\n  --kernel-arg\
         \ offline-legacy-cpu-present=1\n"
     - name: Pack the boot image with the payload in the kernel
