@@ -500,7 +500,7 @@ jobs:
         \ lmipro-display-init=1 \\\n  --kernel-arg offline-legacy-phase=4 \\\n  --kernel-arg offline-legacy-register=1\
         \ \\\n  --kernel-arg offline-legacy-gop=1 \\\n  --kernel-arg lmipro-display-calls=1 \\\n  --kernel-arg\
         \ lmipro-ui-stacks=1 \\\n  --kernel-arg lmipro-ui-focus=1 \\\n  --kernel-arg lmipro-ui-watch=1 \\\n\
-        \  --kernel-arg lmipro-display-mode=1 \\\n  --kernel-arg lmipro-display-cpu=1 --kernel-arg lmipro-display-probe=1 \\\n  --kernel-arg offline-legacy-pm=1\
+        \  --kernel-arg lmipro-display-mode=1 \\\n  --kernel-arg lmipro-display-cpu=1 --kernel-arg sheng-smp=1 --kernel-arg armcpu-spi-ipi=1 --kernel-arg armcpu-self-ipi=1 --kernel-arg lmipro-display-probe=1 \\\n  --kernel-arg offline-legacy-pm=1\
         \ \\\n  --kernel-arg offline-legacy-validate=1 \\\n  --kernel-arg offline-legacy-transfer=1 \\\n  --kernel-arg\
         \ offline-legacy-cpu-present=1\n"
     - name: Pack the boot image with the payload in the kernel
