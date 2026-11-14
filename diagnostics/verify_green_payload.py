@@ -506,8 +506,8 @@ assert 'gLmiproUIStacks[8]' in stack_header.read_text() and 'uintptr_t frames[8]
 stack_text=stack_header.read_text()
 assert 'if(!focused && code!=-47 && code!=375)return;' in stack_text
 assert 'lmipro-ui-focus=1' in report['kernel_args'].split()
-assert 'gLmiproUIStacksFocusTid=0' in stack_text
-assert 'pid==__atomic_load_n(&gLmiproUIStacksDisplayPid,__ATOMIC_ACQUIRE)' in stack_text
+assert 'gLmiproUIStacksFocusTids[4]' in stack_text
+assert 'pid!=__atomic_load_n(&gLmiproUIStacksDisplayPid,__ATOMIC_ACQUIRE)' in stack_text
 assert '(!focused && row.postOpen && (now<row.seconds || now-row.seconds<10))' in stack_text
 assert 's.result=result;s.status=status;s.returned=1' in stack_text
 assert '++s.irqCount;s.irqSame=s.irqPC==pc?s.irqSame+1:1;s.irqPC=pc' in stack_text
