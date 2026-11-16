@@ -237,6 +237,8 @@ jobs:
         run: python3 overlay/scripts/adapt.py --unixnu unixnu
 
       - name: Resolve the device configuration
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           cd unixnu
           ./unixnu defconfig lmipro_defconfig -D ../lmipro
@@ -244,6 +246,8 @@ jobs:
           # after the feeds and submodules are fetched.
           ./unixnu fetch -D ../lmipro
           ./unixnu status -D ../lmipro
+          # archive-10 pins its bindings to the original kernelcache.
+          ./unixnu ipsw fetch -D ../lmipro KernelCache
 
       - name: Restore the built kernel
         id: kernel-cache
