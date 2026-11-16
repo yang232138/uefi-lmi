@@ -73,7 +73,12 @@ jobs:
         run: git clone --depth 1 --branch "$UNIXNU_REF" "https://github.com/$UNIXNU_REPO" unixnu
 
       - name: Check out the device repository
-        run: git clone --depth 1 --branch "$DEVICE_REF" "https://github.com/$DEVICE_REPO" lmipro
+        run: |
+          mkdir lmipro
+          git -C lmipro init -q
+          git -C lmipro remote add origin "https://github.com/$DEVICE_REPO"
+          git -C lmipro fetch -q --depth 1 origin "$DEVICE_REF"
+          git -C lmipro checkout -q FETCH_HEAD
 
       - name: Fetch Mu-Silicium at the pinned commit
         run: |
@@ -180,7 +185,12 @@ jobs:
         run: git clone --depth 1 --branch "$UNIXNU_REF" "https://github.com/$UNIXNU_REPO" unixnu
 
       - name: Check out the device repository
-        run: git clone --depth 1 --branch "$DEVICE_REF" "https://github.com/$DEVICE_REPO" lmipro
+        run: |
+          mkdir lmipro
+          git -C lmipro init -q
+          git -C lmipro remote add origin "https://github.com/$DEVICE_REPO"
+          git -C lmipro fetch -q --depth 1 origin "$DEVICE_REF"
+          git -C lmipro checkout -q FETCH_HEAD
 
       - uses: actions/setup-python@v5
         with:
@@ -364,7 +374,12 @@ jobs:
         run: git clone --depth 1 --branch "$UNIXNU_REF" "https://github.com/$UNIXNU_REPO" unixnu
 
       - name: Check out the device repository
-        run: git clone --depth 1 --branch "$DEVICE_REF" "https://github.com/$DEVICE_REPO" lmipro
+        run: |
+          mkdir lmipro
+          git -C lmipro init -q
+          git -C lmipro remote add origin "https://github.com/$DEVICE_REPO"
+          git -C lmipro fetch -q --depth 1 origin "$DEVICE_REF"
+          git -C lmipro checkout -q FETCH_HEAD
 
       - uses: actions/setup-python@v5
         with:
