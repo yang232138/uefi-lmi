@@ -565,6 +565,22 @@ proof['committed_compositor_exits_verified']=True
 
 proof['bounded_current_thread_compositor_stacks_verified']=True
 
+# Ensure the final kernel actually reaches the board observer and prints its data.
+render_edges={}
+for owner,callee in [('_mach_msg_receive_results','_lmipro_render_ipc_receive'),
+                     (checkpoint,'_lmipro_render_ipc_report')]:
+    site,kind=ui_direct_edge(owner,callee)
+    render_edges[owner+' -> '+callee]=dict(site=hex(site),kind=kind)
+render_record=root/'tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/mach_msg.o.json'
+render_compile=json.loads(render_record.read_text().strip().rstrip(','))
+render_args=render_compile['arguments']
+assert any(a=='-DLMIPRO_RENDER_IPC=1' or (a=='LMIPRO_RENDER_IPC=1' and i and render_args[i-1]=='-D')
+           for i,a in enumerate(render_args))
+assert 'osfmk/ipc/mach_msg.c' in flags['target_files']
+assert b'RenderIPC/v1 40000-40199' in d and b'Swap 4:' in d
+proof['render_ipc_receive_edges']=render_edges
+
+
 (out/'verification.json').write_text(json.dumps(proof,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(out/f)+'  '+f+'\n' for f in ['boot.img','kernel-original.macho','kernel-probed.macho','SILICIUM_UEFI.fd']))
 print(json.dumps(proof,indent=2))
